@@ -12,7 +12,7 @@ function getAuthHeaders(customHeaders: Record<string, string> = {}) {
   return headers;
 }
 
-const API_BASE = 'http://localhost:8090/api';
+const API_BASE = 'https://onmc.onrender.com';
 
 export async function fetchHealthStatus() {
   try {
