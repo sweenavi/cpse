@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-canvas: #F8FAFC;
+    --bg-surface: #FFFFFF;
+    --bg-recessed: #F1F5F9;
+    --fg-charcoal: #0F172A;
+    --fg-muted: #64748B;
+    --border-whisper: #E2E8F0;
+    --accent-crimson: #E11D48;
+    --status-emerald: #059669;
+    --status-amber: #D97706;
+  }
+
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--fg-charcoal);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Monospace Telemetry */
+.font-mono-tech {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+/* Modern Card Surfaces */
+.stitch-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.stitch-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+}
+
+/* Tactile Button Push Physics */
+.btn-stitch {
+  transition: all 0.15s cubic-bezier(0.25, 1, 0.5, 1);
+  border-radius: 0.5rem;
+}
+
+.btn-stitch:active {
+  transform: scale(0.98) translateY(1px);
+}
