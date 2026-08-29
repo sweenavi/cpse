@@ -14,7 +14,7 @@ function getAuthHeaders(customHeaders: Record<string, string> = {}) {
 
 const API_BASE = 'https://onmc-backend.onrender.com';
 
-export async function fetchHealthStatus() {s
+export async function fetchHealthStatus() {
   try {
     const res = await fetch(`${API_BASE}/health`);
     if (!res.ok) throw new Error('API offline');
