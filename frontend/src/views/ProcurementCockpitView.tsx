@@ -40,43 +40,88 @@ export function ProcurementCockpitView({ records = [], currentUser }: Procuremen
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Dynamically derive distinct commodities from records (with multi-CPSE quotations)
+  const availableCommodities = useMemo(() => {
+    if (!records || records.length === 0) {
+      return [
+        {
+          id: 'VALVES',
+          name: 'Ball Valve 2" Class 150# Flanged WCB/SS316',
+          nationalCode: 'CNM-100010-004',
+          rates: [
+            { cpseName: 'CPCL (Manali)', rate: 14200, annualQty: 1200 },
+            { cpseName: 'IOCL (Panipat)', rate: 12800, annualQty: 4800 },
+            { cpseName: 'ONGC (Ankleshwar)', rate: 13400, annualQty: 2400 },
+            { cpseName: 'BPCL (Kochi)', rate: 13900, annualQty: 1600 },
+          ],
+        },
+        {
+          id: 'GASKETS',
+          name: 'Spiral Wound Gasket SS316 4" Class 150#',
+          nationalCode: 'CNM-100001',
+          rates: [
+            { cpseName: 'SAIL (Bhilai)', rate: 529.0, annualQty: 2400 },
+            { cpseName: 'CPCL (Cauvery)', rate: 495.0, annualQty: 800 },
+            { cpseName: 'IOCL (Haldia)', rate: 460.0, annualQty: 3200 },
+            { cpseName: 'HPCL (Visakh)', rate: 510.0, annualQty: 1400 },
+          ],
+        },
+        {
+          id: 'ORINGS',
+          name: 'Nitrile Rubber O-Ring 50x3mm NBR 70A',
+          nationalCode: 'CNM-100023-005',
+          rates: [
+            { cpseName: 'IOCL (Haldia)', rate: 29.87, annualQty: 6500 },
+            { cpseName: 'HPCL (Visakh)', rate: 13.42, annualQty: 8200 },
+            { cpseName: 'CPCL (Manali)', rate: 24.5, annualQty: 3800 },
+            { cpseName: 'ONGC (Ankleshwar)', rate: 22.0, annualQty: 4500 },
+          ],
+        },
+      ];
+    }
+
+    const map = new Map<string, {
+      id: string;
+      name: string;
+      nationalCode: string;
+      rates: { cpseName: string; rate: number; annualQty: number }[];
+    }>();
+
+    for (const rec of records) {
+      const code = rec.groundTruthNationalCode || `CNM-${rec.groundTruthClusterId || rec.rowId}`;
+      const name = rec.groundTruthStandardName || rec.materialDescriptionRaw;
+      if (!map.has(code)) {
+        map.set(code, {
+          id: code,
+          name,
+          nationalCode: code,
+          rates: [],
+        });
+      }
+      const entry = map.get(code)!;
+      entry.rates.push({
+        cpseName: `${rec.cpseName} (${rec.plantLocation ? rec.plantLocation.split(',')[0].trim() : 'Plant'})`,
+        rate: Number(rec.avgUnitPriceINR) || 1000,
+        annualQty: Number(rec.annualProcuredQty) || 100,
+      });
+    }
+
+    const clustersWithMultiRates = Array.from(map.values()).filter((c) => c.rates.length >= 2);
+    return clustersWithMultiRates.length > 0
+      ? clustersWithMultiRates.slice(0, 25)
+      : Array.from(map.values()).slice(0, 10);
+  }, [records]);
+
   // Sourcing Simulation Dataset
   const scenarioData = useMemo(() => {
-    if (selectedCommodity === 'VALVES') {
-      return {
-        title: 'Ball Valve 2" Class 150# Flanged WCB/SS316 (CNM-100010-004)',
-        nationalCode: 'CNM-100010-004',
-        rates: [
-          { cpseName: 'CPCL (Manali)', rate: 14200, annualQty: 1200 },
-          { cpseName: 'IOCL (Panipat)', rate: 12800, annualQty: 4800 },
-          { cpseName: 'ONGC (Ankleshwar)', rate: 13400, annualQty: 2400 },
-          { cpseName: 'BPCL (Kochi)', rate: 13900, annualQty: 1600 },
-        ],
-      };
-    } else if (selectedCommodity === 'GASKETS') {
-      return {
-        title: 'Spiral Wound Gasket SS316 4" Class 150# (CNM-100001)',
-        nationalCode: 'CNM-100001',
-        rates: [
-          { cpseName: 'SAIL (Bhilai)', rate: 529.0, annualQty: 2400 },
-          { cpseName: 'CPCL (Cauvery)', rate: 495.0, annualQty: 800 },
-          { cpseName: 'IOCL (Haldia)', rate: 460.0, annualQty: 3200 },
-          { cpseName: 'HPCL (Visakh)', rate: 510.0, annualQty: 1400 },
-        ],
-      };
-    } else {
-      return {
-        title: 'Nitrile Rubber O-Ring 50x3mm NBR 70A (CNM-100023-005)',
-        nationalCode: 'CNM-100023-005',
-        rates: [
-          { cpseName: 'IOCL (Haldia)', rate: 29.87, annualQty: 6500 },
-          { cpseName: 'HPCL (Visakh)', rate: 13.42, annualQty: 8200 },
-          { cpseName: 'CPCL (Manali)', rate: 24.5, annualQty: 3800 },
-          { cpseName: 'ONGC (Ankleshwar)', rate: 22.0, annualQty: 4500 },
-        ],
-      };
-    }
-  }, [selectedCommodity]);
+    const found = availableCommodities.find((c) => c.id === selectedCommodity);
+    const target = found || availableCommodities[0];
+    return {
+      title: `${target.name} (${target.nationalCode})`,
+      nationalCode: target.nationalCode,
+      rates: target.rates,
+    };
+  }, [availableCommodities, selectedCommodity]);
 
   // Execute simulation API
   useEffect(() => {
@@ -296,11 +341,13 @@ export function ProcurementCockpitView({ records = [], currentUser }: Procuremen
               <select
                 value={selectedCommodity}
                 onChange={(e) => setSelectedCommodity(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-900 cursor-pointer focus:outline-emerald-500"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-900 cursor-pointer focus:outline-emerald-500 max-w-md truncate"
               >
-                <option value="VALVES">Ball Valves 2" 150# (ASME B16.34)</option>
-                <option value="GASKETS">Spiral Wound Gaskets 4" 150# (ASME B16.20)</option>
-                <option value="ORINGS">Nitrile Rubber O-Rings 50x3mm (IS 3400)</option>
+                {availableCommodities.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nationalCode} — {c.name} ({c.rates.length} CPSE Quotes)
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -586,26 +633,22 @@ export function ProcurementCockpitView({ records = [], currentUser }: Procuremen
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 font-mono text-xs">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">BALL VALVES 2" 150#</span>
-                <div className="text-base font-bold text-slate-900">₹12,800 - ₹14,200</div>
-                <div className="text-[11px] text-slate-600">Spread: ₹1,400 / unit (10.9% variance)</div>
-                <div className="text-[10px] text-emerald-600 font-bold">Lowest: IOCL Panipat (₹12,800)</div>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 font-mono text-xs">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">SPIRAL GASKETS 4" 150#</span>
-                <div className="text-base font-bold text-slate-900">₹460 - ₹529</div>
-                <div className="text-[11px] text-slate-600">Spread: ₹69 / unit (15.0% variance)</div>
-                <div className="text-[10px] text-emerald-600 font-bold">Lowest: IOCL Haldia (₹460)</div>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 font-mono text-xs">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">NITRILE O-RINGS 50X3MM</span>
-                <div className="text-base font-bold text-slate-900">₹13.42 - ₹29.87</div>
-                <div className="text-[11px] text-slate-600">Spread: ₹16.45 / unit (122.6% variance)</div>
-                <div className="text-[10px] text-emerald-600 font-bold">Lowest: HPCL Visakh (₹13.42)</div>
-              </div>
+              {availableCommodities.slice(0, 3).map((item) => {
+                const rates = item.rates.map((r) => r.rate);
+                const minRate = rates.length ? Math.min(...rates) : 0;
+                const maxRate = rates.length ? Math.max(...rates) : 0;
+                const spread = maxRate - minRate;
+                const variance = minRate > 0 ? ((spread / minRate) * 100).toFixed(1) : '0';
+                const lowest = item.rates.find((r) => r.rate === minRate);
+                return (
+                  <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 font-mono text-xs">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block truncate" title={item.name}>{item.name}</span>
+                    <div className="text-base font-bold text-slate-900">₹{minRate.toLocaleString()} - ₹{maxRate.toLocaleString()}</div>
+                    <div className="text-[11px] text-slate-600">Spread: ₹{spread.toLocaleString()} / unit ({variance}% variance)</div>
+                    <div className="text-[10px] text-emerald-600 font-bold">Lowest: {lowest?.cpseName || 'Benchmark'} (₹{minRate.toLocaleString()})</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

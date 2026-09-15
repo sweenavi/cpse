@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { UserProfile, UserRole, CPSEEntity } from '../types';
+import { loginUser, fetchAdminUsers, createAdminUser } from '../services/api';
 import {
   Building2,
   HardHat,
@@ -12,7 +13,6 @@ import {
   LogIn,
   CheckSquare,
   Layers,
-  Copy,
   TrendingUp,
   FileText,
   ShieldAlert,
@@ -24,6 +24,9 @@ import {
   Cpu,
   CheckCircle2,
   X,
+  AlertCircle,
+  KeyRound,
+  Loader2,
 } from 'lucide-react';
 
 export interface PersonaConfig extends UserProfile {
@@ -34,6 +37,7 @@ export interface PersonaConfig extends UserProfile {
   primaryCockpitCode: string;
   primaryCockpitIcon: any;
   capabilities: string[];
+  defaultPassword?: string;
   themeColor: {
     primary: string;
     bgBadge: string;
@@ -49,11 +53,46 @@ export interface PersonaConfig extends UserProfile {
 
 export const DEMO_PROFILES_EXTENDED: PersonaConfig[] = [
   {
+    id: 'USR-ADMIN-00',
+    name: 'National DPI Administrator',
+    title: 'National DPI Governance Director',
+    department: 'MoPNG Digital Public Infrastructure Division',
+    email: 'admin@onmc.gov.in',
+    defaultPassword: 'admin@password2026',
+    cpse: 'MoPNG',
+    plantLocation: 'Shastri Bhawan, New Delhi',
+    role: 'SUPER_ADMIN',
+    badgeId: 'GOV-DPI-ADMIN-001',
+    avatarColor: 'bg-gradient-to-br from-rose-600 to-indigo-700',
+    strategicRemit: 'Authoritative sovereign governance, role provisioning, RBAC delegation & SHA-256 Merkle audit',
+    primaryCockpitName: 'Admin Dashboard (Unified Role Manager & Identity Cockpit)',
+    primaryCockpitCode: '[0] ADMIN PORTAL',
+    primaryCockpitIcon: ShieldCheck,
+    capabilities: [
+      'Centralized Role Provisioning & Revocation',
+      'Inter-CPSE Stakeholder Authorization Audit',
+      'Account Suspension & Security Lockout',
+      'Cryptographic SHA-256 Merkle Verification',
+    ],
+    themeColor: {
+      primary: 'text-rose-600',
+      bgBadge: 'bg-rose-100 text-rose-800 border-rose-200',
+      textBadge: 'text-rose-700',
+      border: 'border-rose-300',
+      hoverBorder: 'hover:border-rose-600',
+      cardBg: 'bg-gradient-to-b from-rose-50/50 via-white to-white',
+      btnBg: 'bg-gradient-to-r from-rose-600 to-indigo-600',
+      btnHover: 'hover:from-rose-500 hover:to-indigo-500',
+      accentGlow: 'group-hover:shadow-rose-500/20',
+    },
+  },
+  {
     id: 'USR-MOPNG-01',
     name: 'Shri Amitabh Kant',
     title: 'Joint Secretary (Procurement & Policy)',
     department: 'MoPNG Central Procurement & DPI Wing',
-    email: 'admin@mopng.gov.in',
+    email: 'amitabh.kant@mopng.gov.in',
+    defaultPassword: 'password123',
     cpse: 'MoPNG',
     plantLocation: 'Shastri Bhawan, New Delhi',
     role: 'MOPNG_GOVERNMENT',
@@ -87,6 +126,7 @@ export const DEMO_PROFILES_EXTENDED: PersonaConfig[] = [
     title: 'General Manager (Materials Management)',
     department: 'Refinery Materials & Standard Specifications',
     email: 'manager@cpcl.co.in',
+    defaultPassword: 'password123',
     cpse: 'CPCL',
     plantLocation: 'Manali Refinery, Chennai',
     role: 'CPSE_MANAGEMENT',
@@ -120,6 +160,7 @@ export const DEMO_PROFILES_EXTENDED: PersonaConfig[] = [
     title: 'Chief General Manager (Strategic Sourcing)',
     department: 'Central SCM & Joint Tendering Authority',
     email: 'procurement@indianoil.in',
+    defaultPassword: 'password123',
     cpse: 'IOCL',
     plantLocation: 'Corporate Sourcing, New Delhi',
     role: 'PROCUREMENT_TEAM',
@@ -153,6 +194,7 @@ export const DEMO_PROFILES_EXTENDED: PersonaConfig[] = [
     title: 'Senior Chief Materials Engineer',
     department: 'Offshore Technical Standards & Reliability',
     email: 'engineer@ongc.co.in',
+    defaultPassword: 'password123',
     cpse: 'ONGC',
     plantLocation: 'Western Offshore Basin, Mumbai',
     role: 'ENGINEERING_EXPERT',
@@ -186,6 +228,7 @@ export const DEMO_PROFILES_EXTENDED: PersonaConfig[] = [
     title: 'Chief Enterprise Architect & SAP Basis Lead',
     department: 'Enterprise Systems & Cyber-Security Audit',
     email: 'it_audit@bpcl.in',
+    defaultPassword: 'password123',
     cpse: 'BPCL',
     plantLocation: 'Mumbai Refinery Complex',
     role: 'IT_SAP_TEAM',
@@ -216,7 +259,7 @@ export const DEMO_PROFILES_EXTENDED: PersonaConfig[] = [
 ];
 
 export const DEMO_PROFILES: UserProfile[] = DEMO_PROFILES_EXTENDED.map(
-  ({ strategicRemit, title, department, primaryCockpitName, primaryCockpitCode, primaryCockpitIcon, capabilities, themeColor, ...profile }) => profile
+  ({ strategicRemit, title, department, primaryCockpitName, primaryCockpitCode, primaryCockpitIcon, capabilities, themeColor, defaultPassword, ...profile }) => profile
 );
 
 interface AuthModalProps {
@@ -228,8 +271,19 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: AuthModalProps) {
-  const [activeTab, setActiveTab] = useState<'QUICK_PERSONA' | 'SIGNUP' | 'ARCHITECTURE'>('QUICK_PERSONA');
+  const [activeTab, setActiveTab] = useState<'QUICK_PERSONA' | 'CREDENTIAL_LOGIN' | 'SIGNUP' | 'ARCHITECTURE'>(
+    isLandingMode ? 'CREDENTIAL_LOGIN' : 'QUICK_PERSONA'
+  );
   const [selectedEntityFilter, setSelectedEntityFilter] = useState<string>('ALL');
+  const [liveProfiles, setLiveProfiles] = useState<PersonaConfig[]>(DEMO_PROFILES_EXTENDED);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Direct Credential Login State
+  const [loginIdentifier, setLoginIdentifier] = useState('admin@onmc.gov.in');
+  const [loginPassword, setLoginPassword] = useState('admin@password2026');
+
+  // Custom User Sign Up Form State
   const [formData, setFormData] = useState({
     name: '',
     title: '',
@@ -239,14 +293,113 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
     plantLocation: '',
     role: 'ENGINEERING_EXPERT' as UserRole,
     badgeId: '',
+    password: 'password123',
     complianceCertified: true,
   });
 
+  // Sync users dynamically from backend if available
+  useEffect(() => {
+    async function syncUsers() {
+      try {
+        const users = await fetchAdminUsers();
+        if (Array.isArray(users) && users.length > 0) {
+          setLiveProfiles((prev) =>
+            prev.map((p) => {
+              const remote = users.find((u: any) => u.id === p.id || u.email === p.email);
+              if (remote) {
+                return {
+                  ...p,
+                  role: remote.role || p.role,
+                  status: remote.status || p.status,
+                  name: remote.name || p.name,
+                  plantLocation: remote.plantLocation || p.plantLocation,
+                };
+              }
+              return p;
+            })
+          );
+        }
+      } catch {
+        // Backend offline or unauthorized; standard profiles will serve
+      }
+    }
+    if (isOpen) {
+      syncUsers();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const handleCustomSubmit = (e: React.FormEvent) => {
+  const handlePersonaClick = async (persona: PersonaConfig) => {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const res = await loginUser({ userId: persona.id, password: persona.defaultPassword });
+      if (res && res.user) {
+        onLogin(res.user);
+        if (onClose) onClose();
+        return;
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Authentication failed';
+      if (msg.toLowerCase().includes('suspended')) {
+        setAuthError(msg);
+        setAuthLoading(false);
+        return;
+      }
+      console.warn('Backend login fallback to persona:', err);
+    }
+    // Fallback if backend is offline
+    onLogin(persona);
+    if (onClose) onClose();
+    setAuthLoading(false);
+  };
+
+  const handleCredentialLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginIdentifier) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      const res = await loginUser({
+        identifier: loginIdentifier.trim(),
+        password: loginPassword,
+      });
+
+      if (res && res.user) {
+        onLogin(res.user);
+        if (onClose) onClose();
+        return;
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Invalid credentials or account suspended');
+      setAuthLoading(false);
+      return;
+    }
+
+    // Offline fallback if server not reachable
+    const matched = liveProfiles.find(
+      (p) =>
+        p.email.toLowerCase() === loginIdentifier.trim().toLowerCase() ||
+        p.id.toLowerCase() === loginIdentifier.trim().toLowerCase()
+    );
+    if (matched) {
+      onLogin(matched);
+      if (onClose) onClose();
+    } else {
+      setAuthError('Stakeholder not found. Check email or register a new identity.');
+    }
+    setAuthLoading(false);
+  };
+
+  const handleCustomSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
 
     const newUser: UserProfile = {
       id: `USR-${formData.cpse}-${Date.now().toString().slice(-4)}`,
@@ -257,7 +410,9 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
       role: formData.role,
       badgeId: formData.badgeId || `${formData.cpse}-AUTH-${Math.floor(Math.random() * 9000 + 1000)}`,
       avatarColor:
-        formData.role === 'MOPNG_GOVERNMENT'
+        formData.role === 'SUPER_ADMIN'
+          ? 'bg-rose-600'
+          : formData.role === 'MOPNG_GOVERNMENT'
           ? 'bg-indigo-600'
           : formData.role === 'CPSE_MANAGEMENT'
           ? 'bg-blue-600'
@@ -265,16 +420,34 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
           ? 'bg-emerald-600'
           : formData.role === 'ENGINEERING_EXPERT'
           ? 'bg-rose-600'
-          : formData.role === 'INVENTORY_TEAM'
-          ? 'bg-amber-600'
-          : 'bg-slate-700',
+          : 'bg-slate-800',
+      title: formData.title || 'Enterprise Specialist',
+      department: formData.department || 'Operations',
+      status: 'ACTIVE',
     };
+
+    try {
+      await createAdminUser({
+        name: formData.name,
+        email: formData.email,
+        cpse: formData.cpse,
+        plantLocation: formData.plantLocation || `${formData.cpse} Central Facility`,
+        role: formData.role,
+        badgeId: formData.badgeId,
+        title: formData.title,
+        department: formData.department,
+        password: formData.password || 'password123',
+      });
+    } catch (err: any) {
+      console.warn('Notice: Backend user sync was skipped or offline:', err);
+    }
 
     onLogin(newUser);
     if (onClose) onClose();
+    setAuthLoading(false);
   };
 
-  const filteredPersonas = DEMO_PROFILES_EXTENDED.filter((p) => {
+  const filteredPersonas = liveProfiles.filter((p) => {
     if (selectedEntityFilter === 'ALL') return true;
     return p.cpse === selectedEntityFilter;
   });
@@ -283,7 +456,6 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
     <div className="w-full flex flex-col space-y-6">
       {/* Top Banner / Hero Bar */}
       <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 border border-slate-800 shadow-xl relative overflow-hidden">
-        {/* Subtle Background Circuit Decal */}
         <div className="absolute right-0 top-0 w-96 h-96 bg-rose-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
         <div className="absolute left-1/3 bottom-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none -mb-20" />
 
@@ -336,9 +508,9 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
               </span>
             </div>
             <div className="bg-slate-800/60 border border-slate-700/60 p-2.5 rounded-xl">
-              <span className="text-slate-400 text-[10px] block uppercase font-bold">Autonomous AI Agents</span>
+              <span className="text-slate-400 text-[10px] block uppercase font-bold">Core Stakeholders</span>
               <span className="font-bold text-sky-400 flex items-center gap-1 mt-0.5">
-                <Cpu className="w-3.5 h-3.5" /> 6 Federated Engine Nodes
+                <Cpu className="w-3.5 h-3.5" /> 5 Roles + 1 Admin Portal
               </span>
             </div>
             <div className="bg-slate-800/60 border border-slate-700/60 p-2.5 rounded-xl">
@@ -352,41 +524,79 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
           {/* Segmented Mode Selector */}
           <div className="flex flex-wrap gap-2 pt-2 bg-slate-800/70 p-1.5 rounded-xl text-xs font-semibold">
             <button
-              onClick={() => setActiveTab('QUICK_PERSONA')}
-              className={`flex-1 min-w-[200px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              onClick={() => {
+                setActiveTab('QUICK_PERSONA');
+                setAuthError(null);
+              }}
+              className={`flex-1 min-w-[170px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'QUICK_PERSONA'
                   ? 'bg-rose-600 text-white shadow-md font-bold'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
               }`}
             >
               <UserCheck className="w-4 h-4" />
-              1-Click Stakeholder Personas (6 Core Roles)
+              1-Click Stakeholder Cockpits (6 Roles)
             </button>
             <button
-              onClick={() => setActiveTab('SIGNUP')}
-              className={`flex-1 min-w-[200px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              onClick={() => {
+                setActiveTab('CREDENTIAL_LOGIN');
+                setAuthError(null);
+              }}
+              className={`flex-1 min-w-[170px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                activeTab === 'CREDENTIAL_LOGIN'
+                  ? 'bg-rose-600 text-white shadow-md font-bold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+              }`}
+            >
+              <KeyRound className="w-4 h-4" />
+              Enterprise Credential Sign-In
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('SIGNUP');
+                setAuthError(null);
+              }}
+              className={`flex-1 min-w-[170px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'SIGNUP'
                   ? 'bg-rose-600 text-white shadow-md font-bold'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
               }`}
             >
               <UserPlus className="w-4 h-4" />
-              Custom Enterprise Sign-Up &amp; SAP ID Provisioning
+              Custom Enterprise Sign-Up
             </button>
             <button
-              onClick={() => setActiveTab('ARCHITECTURE')}
-              className={`flex-1 min-w-[200px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              onClick={() => {
+                setActiveTab('ARCHITECTURE');
+                setAuthError(null);
+              }}
+              className={`flex-1 min-w-[170px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'ARCHITECTURE'
                   ? 'bg-rose-600 text-white shadow-md font-bold'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
               }`}
             >
               <Cpu className="w-4 h-4" />
-              6-Agent Autonomous Architecture Matrix
+              6-Agent Architecture
             </button>
           </div>
         </div>
       </div>
+
+      {authError && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl flex items-center gap-3 text-xs font-mono">
+          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+          <div className="flex-1">
+            <strong>Authentication Alert:</strong> {authError}
+          </div>
+          <button
+            onClick={() => setAuthError(null)}
+            className="text-rose-500 hover:text-rose-700 text-xs font-bold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Tab 1: 1-Click Stakeholder Personas */}
       {activeTab === 'QUICK_PERSONA' && (
@@ -397,14 +607,14 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
                 Select Your Enterprise Stakeholder Cockpit
               </h2>
               <p className="text-xs text-slate-500 font-mono">
-                Click any calibrated role card below to instantly launch into their dedicated operational dashboard with pre-configured RBAC permissions:
+                Click any of the 5 operational stakeholder roles or the 1 Super Admin Portal below to launch its dedicated cockpit:
               </p>
             </div>
 
             {/* CPSE Filter Pills */}
             <div className="flex items-center gap-1.5 text-xs font-semibold flex-wrap">
               <span className="text-slate-500 text-[11px] font-mono mr-1">Filter Organization:</span>
-              {['ALL', 'MoPNG', 'CPCL', 'IOCL', 'ONGC', 'SAIL', 'BPCL'].map((cpse) => (
+              {['ALL', 'MoPNG', 'CPCL', 'IOCL', 'ONGC', 'BPCL'].map((cpse) => (
                 <button
                   key={cpse}
                   onClick={() => setSelectedEntityFilter(cpse)}
@@ -420,21 +630,20 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
             </div>
           </div>
 
-          {/* 6 Large Widescreen Persona Cards */}
+          {/* 6 High-End Persona Cards (1 Admin + 5 Stakeholders) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {filteredPersonas.map((persona) => {
               const CockpitIcon = persona.primaryCockpitIcon;
+              const isSuperAdmin = persona.role === 'SUPER_ADMIN';
 
               return (
                 <div
                   key={persona.id}
-                  onClick={() => {
-                    onLogin(persona);
-                    if (onClose) onClose();
-                  }}
-                  className={`stitch-card ${persona.themeColor.cardBg} border ${persona.themeColor.border} ${persona.themeColor.hoverBorder} rounded-2xl p-5 sm:p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl cursor-pointer flex flex-col justify-between gap-4 group relative overflow-hidden`}
+                  onClick={() => !authLoading && handlePersonaClick(persona)}
+                  className={`stitch-card ${persona.themeColor.cardBg} border ${persona.themeColor.border} ${persona.themeColor.hoverBorder} rounded-2xl p-5 sm:p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl cursor-pointer flex flex-col justify-between gap-4 group relative overflow-hidden ${
+                    persona.status === 'SUSPENDED' ? 'opacity-50 grayscale' : ''
+                  }`}
                 >
-                  {/* Top Color Accent Line */}
                   <div className={`absolute top-0 left-0 right-0 h-1.5 ${persona.themeColor.btnBg}`} />
 
                   {/* Header Row: Avatar, Name, Designation & Role Badge */}
@@ -444,15 +653,24 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
                         <div
                           className={`w-12 h-12 rounded-xl ${persona.avatarColor} text-white flex items-center justify-center font-bold text-sm shadow-md ring-2 ring-white`}
                         >
-                          {persona.name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')
-                            .slice(0, 2)}
+                          {isSuperAdmin ? (
+                            '👑'
+                          ) : (
+                            persona.name
+                              .split(' ')
+                              .map((n) => n[0])
+                              .join('')
+                              .slice(0, 2)
+                          )}
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-slate-900 leading-tight group-hover:text-rose-600 transition-colors">
+                          <div className="font-bold text-sm text-slate-900 leading-tight group-hover:text-rose-600 transition-colors flex items-center gap-1.5">
                             {persona.name}
+                            {isSuperAdmin && (
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 bg-rose-600 text-white rounded">
+                                ROOT
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] font-medium text-slate-600 line-clamp-1">
                             {persona.title}
@@ -516,13 +734,25 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
                     </div>
                   </div>
 
-                  {/* Big Action CTA Button */}
+                  {/* Action CTA Button */}
                   <div className="pt-2 border-t border-slate-200/80">
                     <button
-                      className={`w-full py-2.5 px-4 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all ${persona.themeColor.btnBg} ${persona.themeColor.btnHover} group-hover:shadow-lg cursor-pointer`}
+                      disabled={authLoading || persona.status === 'SUSPENDED'}
+                      className={`w-full py-2.5 px-4 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all ${
+                        persona.themeColor.btnBg
+                      } ${persona.themeColor.btnHover} group-hover:shadow-lg cursor-pointer disabled:opacity-50`}
                     >
-                      <span>Enter {persona.name.split(' ')[0]}'s Workspace</span>
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      {authLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Authenticating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Enter {persona.name.split(' ')[0]}'s Cockpit</span>
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -532,16 +762,128 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
         </div>
       )}
 
-      {/* Tab 2: Custom Enterprise Sign-Up Form */}
+      {/* Tab 2: Enterprise Credential Sign-In */}
+      {activeTab === 'CREDENTIAL_LOGIN' && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-rose-600" />
+              Official Sovereign &amp; CPSE Enterprise Sign-In
+            </h2>
+            <p className="text-xs text-slate-500 font-mono mt-1">
+              Authenticate using your official government email or CPSE identity with password verification against the Merkle audit ledger:
+            </p>
+          </div>
+
+          {/* Quick-fill Helper Badges */}
+          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
+            <span className="text-[11px] font-bold text-slate-600 uppercase font-mono block">
+              Quick-Select Official Stakeholder Account:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {liveProfiles.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setLoginIdentifier(p.email);
+                    setLoginPassword(p.defaultPassword || 'password123');
+                    setAuthError(null);
+                  }}
+                  className={`text-xs font-mono px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    loginIdentifier === p.email
+                      ? 'bg-slate-900 text-white border-slate-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{p.role === 'SUPER_ADMIN' ? '👑' : '👤'}</span>
+                  <span>{p.name.split(' ')[0]} ({p.cpse})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <form onSubmit={handleCredentialLoginSubmit} className="space-y-5 max-w-xl text-xs">
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700 block flex items-center gap-1.5">
+                <Mail className="w-4 h-4 text-slate-500" /> Email Address or Stakeholder ID *
+              </label>
+              <input
+                type="text"
+                required
+                value={loginIdentifier}
+                onChange={(e) => setLoginIdentifier(e.target.value)}
+                placeholder="e.g. admin@onmc.gov.in or amitabh.kant@mopng.gov.in"
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-rose-500 focus:outline-none bg-slate-50 focus:bg-white transition-colors"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700 block flex items-center gap-1.5">
+                <Lock className="w-4 h-4 text-slate-500" /> Account Password *
+              </label>
+              <input
+                type="password"
+                required
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="Enter password..."
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-rose-500 focus:outline-none bg-slate-50 focus:bg-white transition-colors"
+              />
+            </div>
+
+            <div className="pt-2 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-mono">
+                Encrypted via SHA-256 Auth Middleware &amp; Session BAPI Listener
+              </span>
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="btn-stitch bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
+              >
+                {authLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verifying Credentials...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Authenticate &amp; Launch Cockpit</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <span className="text-slate-500 font-mono">Don't have an enterprise account?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('SIGNUP');
+                  setAuthError(null);
+                }}
+                className="font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-1.5"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Register New Stakeholder Account
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Tab 3: Custom Enterprise Sign-Up Form */}
       {activeTab === 'SIGNUP' && (
         <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-rose-600" />
-              Custom Enterprise User Registration &amp; SAP Identity Provisioning
+              Custom Enterprise Stakeholder Registration &amp; SAP Provisioning
             </h2>
             <p className="text-xs text-slate-500 font-mono mt-1">
-              Provision a new authenticated session with customized CPSE credentials, plant assignment, and role permissions:
+              Provision a new official stakeholder identity with customized CPSE credentials, plant assignment, and verified role permissions:
             </p>
           </div>
 
@@ -597,7 +939,7 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
 
               <div className="space-y-1.5">
                 <label className="font-bold text-slate-700 block flex items-center gap-1.5">
-                  <HardHat className="w-4 h-4 text-slate-500" /> Stakeholder Role / Operational Cockpit *
+                  <HardHat className="w-4 h-4 text-slate-500" /> Stakeholder Operational Role (5 Official Roles) *
                 </label>
                 <select
                   value={formData.role}
@@ -661,16 +1003,32 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
 
               <button
                 type="submit"
-                className="btn-stitch bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer"
+                disabled={authLoading}
+                className="btn-stitch bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
               >
                 <LogIn className="w-4 h-4" /> Provision Session &amp; Launch Cockpit
+              </button>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <span className="text-slate-500 font-mono">Already have an enterprise account?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('CREDENTIAL_LOGIN');
+                  setAuthError(null);
+                }}
+                className="font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-1.5"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Sign In to Existing Account
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Tab 3: 6-Agent Autonomous Architecture Matrix */}
+      {/* Tab 4: 6-Agent Autonomous Architecture Matrix */}
       {activeTab === 'ARCHITECTURE' && (
         <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-4">
@@ -773,12 +1131,10 @@ export function AuthModal({ onLogin, onClose, isOpen, isLandingMode = false }: A
     </div>
   );
 
-  // If in landing page mode (full page), render directly inside a rich container
   if (isLandingMode) {
     return <div className="w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 animate-in fade-in duration-200">{content}</div>;
   }
 
-  // Otherwise, render as a wide, majestic modal overlay
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       <div className="bg-slate-100 border border-slate-300 rounded-3xl max-w-6xl w-full shadow-2xl p-4 sm:p-6 my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">

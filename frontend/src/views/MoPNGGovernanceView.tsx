@@ -34,35 +34,37 @@ export function MoPNGGovernanceView({
   const [selectedCPSE, setSelectedCPSE] = useState<string>('ALL');
   const [selectedMaster, setSelectedMaster] = useState<NationalMaterialMaster | null>(masters[0] || null);
 
-  // Computed Sovereign Metrics
-  const totalRecords = records.length || 8;
-  const totalMasters = masters.length || 5;
-  const greenTierCount = records.filter((r) => r.triageTier === 'GREEN' || r.status === 'SYNCED').length || 6;
-  const yellowTierCount = records.filter((r) => r.triageTier === 'YELLOW' || r.status === 'PENDING_REVIEW').length || 2;
-  const standardizationRate = totalRecords > 0 ? Math.round((greenTierCount / totalRecords) * 100) : 85;
+  // Computed Sovereign Metrics purely from active live dataset
+  const totalRecords = records.length;
+  const totalMasters = masters.length;
+  const greenTierCount = records.filter((r) => r.triageTier === 'GREEN' || r.status === 'SYNCED').length;
+  const yellowTierCount = records.filter((r) => r.triageTier === 'YELLOW' || r.status === 'PENDING_REVIEW').length;
+  const standardizationRate = totalRecords > 0 ? Math.round((greenTierCount / totalRecords) * 100) : 0;
 
-  const totalProcurementSpendINR = records.reduce((acc, r) => acc + r.avgUnitPriceINR * r.annualProcuredQty, 0) || 124500000;
-  const estimatedSavingsINR = Math.round(totalProcurementSpendINR * 0.124); // 12.4% avg econometric group savings
+  const totalProcurementSpendINR = records.reduce((acc, r) => acc + (Number(r.avgUnitPriceINR) || 0) * (Number(r.annualProcuredQty) || 0), 0);
+  const estimatedSavingsINR = Math.round(totalProcurementSpendINR * 0.124); // 12.4% econometric DPI bulk savings
 
   // CPSE Breakdown Data for Comparison Screen
   const cpseStats = useMemo(() => {
     const list = ['CPCL', 'IOCL', 'ONGC', 'BPCL', 'HPCL', 'SAIL'];
     return list.map((cpse) => {
       const cpseRecs = records.filter((r) => r.cpseName === cpse);
-      const totalSKUs = cpseRecs.length || (cpse === 'CPCL' ? 320 : cpse === 'IOCL' ? 840 : cpse === 'ONGC' ? 410 : cpse === 'BPCL' ? 380 : cpse === 'HPCL' ? 290 : 210);
-      const harmonizedSKUs = Math.round(totalSKUs * (cpse === 'CPCL' ? 0.92 : cpse === 'IOCL' ? 0.88 : cpse === 'ONGC' ? 0.85 : 0.82));
-      const spendCr = (totalSKUs * 145000) / 10000000;
-      const savingsLakh = spendCr * 12.4;
+      const totalSKUs = cpseRecs.length;
+      const harmonizedSKUs = cpseRecs.filter((r) => r.status === 'SYNCED' || r.triageTier === 'GREEN').length;
+      const cpseSpendINR = cpseRecs.reduce((acc, r) => acc + (Number(r.avgUnitPriceINR) || 0) * (Number(r.annualProcuredQty) || 0), 0);
+      const spendCr = cpseSpendINR / 10000000;
+      const savingsLakh = (cpseSpendINR * 0.124) / 100000;
       return {
         cpse,
         totalSKUs,
         harmonizedSKUs,
-        adoptionRate: Math.round((harmonizedSKUs / totalSKUs) * 100),
+        adoptionRate: totalSKUs > 0 ? Math.round((harmonizedSKUs / totalSKUs) * 100) : 0,
         spendCr: spendCr.toFixed(2),
         savingsLakh: savingsLakh.toFixed(2),
       };
     });
   }, [records]);
+
 
   const filteredMasters = useMemo(() => {
     return masters.filter((m) => {

@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import type { UserProfile, AdjudicationCandidate } from '../types';
+import { useState, useMemo, useEffect } from 'react';
+import type { UserProfile, AdjudicationCandidate, MaterialRecord } from '../types';
 import {
   Search, Filter, Clock, ChevronRight, X, ShieldCheck, ArrowUpRight, ExternalLink,
   Edit3, RotateCcw, Sparkles, Info, Check, BarChart3, Shield, FileText,
@@ -49,174 +49,183 @@ interface ReviewCaseItem {
   duplicates: { cpse: string; code: string; score: number; confidence: string; status: string }[];
 }
 
-const REVIEW_CASES_DATA: ReviewCaseItem[] = [
-  {
-    id: 'REV-2025-4187',
-    title: 'Seamless Carbon Steel Pipe',
-    subtitle: '2" NB, SCH 40, ASTM A106 Gr.B',
-    priority: 'High',
-    confidence: 89,
-    candidateCount: 3,
-    slaText: 'Review within 24 hrs',
-    status: 'In Progress',
-    assignedReviewer: 'Er. Rajesh Kulkarni (ONGC)',
-    proposedNationalCode: 'NMM-0001842',
-    sources: [
-      {
-        cpse: 'CPCL',
-        code: 'CPCL-458921',
-        sourceType: 'SAP',
-        attributes: {
-          'Material Type': 'CS Pipe',
-          'Grade': 'Gr. B',
-          'Standard': 'ASTM A106',
-          'Size': '2 INCH',
-          'Nominal Bore': '2 INCH',
-          'Schedule': 'SCH 40',
-          'Manufacturing': 'SMLS',
-          'Material Group': 'Pipe & Tubes',
-          'UOM': 'MTR',
-          'End Type': 'Plain End',
-          'Surface Finish': 'Black',
-        },
-      },
-      {
-        cpse: 'IOCL',
-        code: 'IOCL-893201',
-        sourceType: 'Legacy OCR',
-        attributes: {
-          'Material Type': 'Carbon Steel Pipe',
-          'Grade': 'Grade B',
-          'Standard': 'ASTM-A106',
-          'Size': '2" NB',
-          'Nominal Bore': '2" NB',
-          'Schedule': 'SCH40',
-          'Manufacturing': 'Seamless',
-          'Material Group': 'Pipe',
-          'UOM': 'MTR',
-          'End Type': 'PE',
-          'Surface Finish': 'Plain',
-        },
-      },
-      {
-        cpse: 'ONGC',
-        code: 'ONGC-771201',
-        sourceType: 'Excel',
-        attributes: {
-          'Material Type': 'MS Pipe',
-          'Grade': 'B',
-          'Standard': 'A106-B',
-          'Size': '2 NB',
-          'Nominal Bore': '2 INCH',
-          'Schedule': 'SCH 40',
-          'Manufacturing': 'SMLS',
-          'Material Group': 'Pipes & Tubes',
-          'UOM': 'M',
-          'End Type': 'Plain',
-          'Surface Finish': 'Black Painted',
-        },
-      },
-    ],
-    canonicalProposed: {
-      'Material Type': 'Seamless Carbon Steel Pipe',
-      'Grade': 'ASTM A106 Grade B',
-      'Standard': 'ASTM A106 / ASME B36.10M',
-      'Size': '2 INCH (DN 50)',
-      'Nominal Bore': '2 INCH NB',
-      'Schedule': 'SCH 40',
-      'Manufacturing': 'Seamless (SMLS)',
-      'Material Group': 'Pipes & Tubes',
-      'UOM': 'MTR',
-      'End Type': 'Plain End (PE)',
-      'Surface Finish': 'Black / Varnish Coated',
-    },
-    attributeStates: {
-      'Material Type': 'NORMALIZED',
-      'Grade': 'MATCH',
-      'Standard': 'MATCH',
-      'Size': 'NORMALIZED',
-      'Nominal Bore': 'NORMALIZED',
-      'Schedule': 'MATCH',
-      'Manufacturing': 'MATCH',
-      'Material Group': 'NORMALIZED',
-      'UOM': 'NORMALIZED',
-      'End Type': 'NORMALIZED',
-      'Surface Finish': 'NORMALIZED',
-    },
-    attributeConfidence: {
-      'Material Type': 94,
-      'Grade': 100,
-      'Standard': 100,
-      'Size': 98,
-      'Nominal Bore': 98,
-      'Schedule': 97,
-      'Manufacturing': 99,
-      'Material Group': 100,
-      'UOM': 100,
-      'End Type': 96,
-      'Surface Finish': 95,
-    },
-    aiAnalysis: {
-      overallSimilarity: 89,
-      factors: [
-        { name: 'Description Similarity', score: 92, status: 'NORMALIZED' },
-        { name: 'Specification Match', score: 100, status: 'MATCH' },
-        { name: 'Material Type Match', score: 94, status: 'NORMALIZED' },
-        { name: 'Grade Match', score: 100, status: 'MATCH' },
-        { name: 'Dimension Consistency', score: 98, status: 'NORMALIZED' },
-        { name: 'Schedule/Rating Match', score: 97, status: 'NORMALIZED' },
-        { name: 'Manufacturing Match', score: 99, status: 'MATCH' },
-        { name: 'Unit Normalization', score: 100, status: 'MATCH' },
-        { name: 'Standard Compatibility', score: 100, status: 'MATCH' },
-        { name: 'Attribute Completeness', score: 91, status: 'NORMALIZED' },
-      ],
-      recommendation: 'Equivalent (Consolidate into NMM-0001842)',
-      explanation: 'Textual variances in description ("CS Pipe" vs "MS Pipe") resolve to identical underlying metallurgy (ASTM A106 Gr.B) and dimensions (2" NB SCH 40).',
-    },
-    impact: {
-      newNationalCode: 'NMM-0001842',
-      cpsesUnified: ['CPCL', 'IOCL', 'ONGC'],
-      stockPoolingUnits: '2,145 Units',
-      procurementSavings: '₹12.4 Cr Estimated',
-    },
-    standards: [
-      { code: 'ASTM A106', title: 'Seamless Carbon Steel Pipe for High-Temperature Service', link: '#', valid: true },
-      { code: 'ASME B36.10M', title: 'Welded and Seamless Wrought Steel Pipe', link: '#', valid: true },
-    ],
-    sourceDocs: [
-      { cpse: 'CPCL', filename: 'CPCL_SAP_EXTRACT_458921.pdf', page: 'Line 42', extract: 'PIPE CS SMLS 2" SCH40 ASTM A106 GR.B', confidence: 99, type: 'SAP S/4HANA Line' },
-      { cpse: 'IOCL', filename: 'IOCL_REFINERY_DWG_893201.tif', page: 'Sheet 4, Block B2', extract: 'CARBON STEEL PIPE SEAMLESS 2 INCH NB SCH 40 A106-B', confidence: 91, type: 'Legacy Scanned Drawing' },
-      { cpse: 'ONGC', filename: 'ONGC_ASSET_REGISTER_2024.xlsx', page: 'Row 8912', extract: 'MS PIPE SMLS 2 NB SCH 40 ASTM A106 B', confidence: 95, type: 'Asset Master Excel' },
-    ],
-    notes: [],
-    history: [
-      { date: '26 Aug 2025 09:00 AM', author: 'System', action: 'Review Created', details: 'Case auto-generated from Cluster DC-1842' },
-      { date: '26 Aug 2025 09:15 AM', author: 'AI Agent', action: 'AI Analysis', details: 'Generated similarity scoring & equivalence recommendation' },
-      { date: '26 Aug 2025 10:00 AM', author: 'Workflow Engine', action: 'Assigned', details: 'Assigned to Er. Rajesh Kulkarni (ONGC)' },
-    ],
-    duplicates: [
-      { cpse: 'CPCL', code: 'CPCL-458921', score: 94, confidence: 'HIGH', status: 'Equivalent Candidate' },
-      { cpse: 'IOCL', code: 'IOCL-893201', score: 92, confidence: 'HIGH', status: 'Equivalent Candidate' },
-      { cpse: 'ONGC', code: 'ONGC-771201', score: 89, confidence: 'HIGH', status: 'Equivalent Candidate' },
-    ]
-  }
-];
-
 export function ReviewerPortalView({
   currentUser,
   onNavigateTab,
   queue = [],
+  records = [],
   onApprove,
   onReject,
 }: {
   currentUser?: UserProfile | null;
   onNavigateTab?: (tab: string) => void;
   queue?: AdjudicationCandidate[];
+  records?: MaterialRecord[];
   onApprove?: (item: AdjudicationCandidate) => Promise<void> | void;
   onReject?: (item: AdjudicationCandidate) => Promise<void> | void;
 }) {
+  const dynamicCases = useMemo<ReviewCaseItem[]>(() => {
+    if (queue && queue.length > 0) {
+      return queue.map((q) => {
+        const lr = q.localRecord || ({} as any);
+        const cm = q.candidateMaster || ({} as any);
+        return {
+          id: q.id,
+          title: cm.standardizedName || lr.materialDescriptionRaw || 'Industrial Commodity Candidate',
+          subtitle: `${lr.extractedDimension || ''}, ${lr.extractedGrade || ''}, ${lr.extractedStandard || ''}`.trim(),
+          priority: (q.finalConfidence || 0.85) < 0.85 ? 'High' : 'Medium',
+          confidence: Math.round((q.finalConfidence || 0.89) * 100),
+          candidateCount: cm.participatingCPSEs?.length || 2,
+        slaText: 'SLA: 24h Review',
+        status: 'In Progress',
+        assignedReviewer: 'Er. Rajesh Kulkarni (ONGC)',
+        proposedNationalCode: cm.nationalCode || 'NMM-0001842',
+        sources: [
+          {
+            cpse: lr.cpseName || 'CPCL',
+            code: lr.materialCodeCPSE || 'MAT-LOCAL',
+            sourceType: (lr.sourceSystem as any) || 'SAP',
+            attributes: {
+              'Material Type': lr.materialType || 'Industrial SKU',
+              'Grade': lr.extractedGrade || 'Standard',
+              'Standard': lr.extractedStandard || 'Standard',
+              'Size': lr.extractedDimension || 'Standard',
+              'Nominal Bore': lr.extractedDimension || 'Standard',
+              'Schedule': lr.extractedPressure || 'Standard',
+              'Manufacturing': lr.manufacturingMethod || 'Standard',
+              'Material Group': lr.materialGroup || 'Pipes & Fittings',
+              'UOM': lr.unitOfMeasurement || 'NOS',
+              'End Type': lr.endType || 'Standard',
+              'Surface Finish': lr.surfaceFinish || 'Standard',
+            },
+          },
+        ],
+        canonicalProposed: {
+          'Standardized Name': cm.standardizedName || 'Canonical Name',
+          'National Golden Code': cm.nationalCode || 'CNM-000000',
+          'Material Group': cm.materialGroup || cm.unspscCategory || 'Piping',
+          'UNSPSC Code': cm.unspscCode || '40141600',
+        },
+        attributeStates: {
+          'Grade': 'NORMALIZED',
+          'Standard': 'MATCH',
+          'Size': 'MATCH',
+        },
+        attributeConfidence: {
+          'Grade': 94,
+          'Standard': 98,
+          'Size': 99,
+        },
+        aiAnalysis: {
+          overallSimilarity: Math.round((q.finalConfidence || 0.89) * 100),
+          factors: [
+            { name: 'Vector Embedding Similarity', score: Math.round((q.vectorScore || 0.88) * 100), status: 'MATCH' },
+            { name: 'Technical Attribute Match', score: Math.round((q.attributeScore || 0.91) * 100), status: 'NORMALIZED' },
+          ],
+          recommendation: `Match with ${cm.nationalCode || 'golden master'}. Affirm equivalence to standardize inter-CPSE master.`,
+          explanation: `Attribute overlap verified across CPSE plant standards.`,
+        },
+        impact: {
+          newNationalCode: cm.nationalCode || 'NMM-0001842',
+          cpsesUnified: cm.participatingCPSEs || ['CPCL', 'IOCL'],
+          stockPoolingUnits: `${cm.annualTotalVolume || 1200} Units`,
+          procurementSavings: `₹${(((q as any).potentialSavingsINR || 250000) / 100000).toFixed(1)} Lakh`,
+        },
+        standards: [
+          { code: lr.extractedStandard || 'ASTM A106', title: 'Industrial Standard Specification', link: '#', valid: true },
+        ],
+        sourceDocs: [
+          { cpse: lr.cpseName || 'CPCL', filename: `${lr.materialCodeCPSE || 'MAT'}_spec.pdf`, page: 'Page 1', extract: lr.specificationRaw || lr.materialDescriptionRaw || '', confidence: 96, type: 'SAP S/4HANA Master' },
+        ],
+        notes: [],
+        history: [
+          { date: 'Today', author: 'Agent 1 Routing Engine', action: 'Candidate Queued', details: 'Yellow tier HITL review requirement flagged' },
+        ],
+        duplicates: (q.historicalRates || []).map((hr: any) => ({
+          cpse: hr.cpseName,
+          code: `${hr.cpseName}-MAT`,
+          score: 92,
+          confidence: 'HIGH',
+          status: 'Candidate',
+        })),
+      };
+    });
+  }
+
+  const pending = (records || []).filter(r => r.mappingStatus !== 'Approved' || r.triageTier === 'YELLOW').slice(0, 14);
+  return pending.map((r, idx) => ({
+    id: `ADJ-2026-${String(idx + 1).padStart(3, '0')}`,
+    title: r.groundTruthStandardName || r.materialDescriptionRaw,
+    subtitle: `${r.extractedDimension || ''}, ${r.extractedGrade || ''}, ${r.extractedStandard || ''}`.trim(),
+    priority: (r.triageTier === 'RED' ? 'High' : 'Medium') as 'High' | 'Medium',
+    confidence: Math.round((r.finalConfidence || 0.86) * 100),
+    candidateCount: 2,
+    slaText: 'Review within 24 hrs',
+    status: 'In Progress',
+    assignedReviewer: r.approvedBy || 'Er. Rajesh Kulkarni (ONGC)',
+    proposedNationalCode: r.groundTruthNationalCode || 'CNM-MASTER',
+    sources: [
+      {
+        cpse: r.cpseName,
+        code: r.materialCodeCPSE,
+        sourceType: (r.sourceSystem as any) || 'SAP',
+        attributes: {
+          'Material Type': r.materialType || 'Industrial SKU',
+          'Grade': r.extractedGrade || 'Standard',
+          'Standard': r.extractedStandard || 'Standard',
+          'Size': r.extractedDimension || 'Standard',
+          'Schedule': r.extractedPressure || 'Standard',
+          'Material Group': r.materialGroup || 'Piping',
+          'UOM': r.unitOfMeasurement || 'NOS',
+        }
+      }
+    ],
+    canonicalProposed: {
+      'Standardized Name': r.groundTruthStandardName || r.materialDescriptionRaw,
+      'National Golden Code': r.groundTruthNationalCode || 'CNM-MASTER',
+      'Material Group': r.materialGroup || 'Piping',
+      'UNSPSC Code': r.existingClassificationCode || '40141600',
+    },
+    attributeStates: { 'Grade': 'NORMALIZED', 'Standard': 'MATCH', 'Size': 'MATCH' },
+    attributeConfidence: { 'Grade': 94, 'Standard': 98, 'Size': 99 },
+    aiAnalysis: {
+      overallSimilarity: Math.round((r.finalConfidence || 0.86) * 100),
+      factors: [
+        { name: 'Vector Embedding Similarity', score: 88, status: 'MATCH' },
+        { name: 'Technical Attribute Match', score: 92, status: 'NORMALIZED' }
+      ],
+      recommendation: `Match with ${r.groundTruthNationalCode}. Affirm equivalence across CPSE plants.`,
+      explanation: 'Dynamic similarity generated from benchmark record.'
+    },
+    impact: {
+      newNationalCode: r.groundTruthNationalCode || 'CNM-MASTER',
+      cpsesUnified: [r.cpseName, 'IOCL'],
+      stockPoolingUnits: `${r.annualProcuredQty || 500} Units`,
+      procurementSavings: `₹${(((r.avgUnitPriceINR || 1000) * (r.annualProcuredQty || 100) * 0.1) / 100000).toFixed(1)} Lakh`,
+    },
+    standards: [
+      { code: r.extractedStandard || 'ASTM A106', title: 'Industrial Standard Specification', link: '#', valid: true }
+    ],
+    sourceDocs: [
+      { cpse: r.cpseName, filename: `${r.materialCodeCPSE}_spec.pdf`, page: 'Page 1', extract: r.specificationRaw || r.materialDescriptionRaw, confidence: 96, type: 'SAP S/4HANA Master' }
+    ],
+    notes: [],
+    history: [
+      { date: 'Live Session', author: 'System Agent 1', action: 'Adjudication Ingestion', details: 'Ingested from active benchmark repository' }
+    ],
+    duplicates: []
+  }));
+}, [queue, records]);
+
   const [activeQueueTab, setActiveQueueTab] = useState<'QUEUE' | 'ASSIGNED' | 'ESCALATED' | 'COMPLETED'>('QUEUE');
-  const [currentCase, setCurrentCase] = useState<ReviewCaseItem | null>(REVIEW_CASES_DATA[0]);
+  const [currentCase, setCurrentCase] = useState<ReviewCaseItem | null>(null);
+
+  useEffect(() => {
+    if (!currentCase && dynamicCases.length > 0) {
+      setCurrentCase(dynamicCases[0]);
+    }
+  }, [dynamicCases, currentCase]);
+
   const [workspaceTab, setWorkspaceTab] = useState<'NOMENCLATURE' | 'AFFIRMATION_DECISION' | 'STANDARDS' | 'AUDIT'>('NOMENCLATURE');
 
   // Search & Filter
@@ -338,7 +347,7 @@ export function ReviewerPortalView({
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black text-slate-900 tracking-tight">184 Cases</div>
+            <div className="text-2xl font-black text-slate-900 tracking-tight">{dynamicCases.length} Cases</div>
             <div className="text-[11px] text-slate-500 mt-0.5">Awaiting Engineering Affirmation</div>
           </div>
         </div>
@@ -420,14 +429,14 @@ export function ReviewerPortalView({
                 className={`flex-1 py-1.5 rounded-md cursor-pointer text-center text-[11px] ${activeQueueTab === 'QUEUE' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'text-slate-600'
                   }`}
               >
-                All Cases (184)
+                All Cases ({dynamicCases.length})
               </button>
               <button
                 onClick={() => setActiveQueueTab('ASSIGNED')}
                 className={`flex-1 py-1.5 rounded-md cursor-pointer text-center text-[11px] ${activeQueueTab === 'ASSIGNED' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'text-slate-600'
                   }`}
               >
-                My Assigned (12)
+                My Assigned ({dynamicCases.length})
               </button>
             </div>
 
@@ -444,7 +453,7 @@ export function ReviewerPortalView({
           </div>
 
           <div className="p-3 space-y-2.5 overflow-y-auto max-h-[720px] bg-slate-50/30">
-            {REVIEW_CASES_DATA.map((item) => {
+            {dynamicCases.map((item) => {
               const isSelected = currentCase?.id === item.id;
               return (
                 <div

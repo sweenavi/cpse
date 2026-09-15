@@ -1,11 +1,11 @@
 export type CPSEEntity = 'CPCL' | 'IOCL' | 'ONGC' | 'BPCL' | 'HPCL' | 'SAIL' | 'NTPC' | 'MoPNG' | 'CVO_AUDIT';
 
 export type UserRole =
+  | 'SUPER_ADMIN'
   | 'MOPNG_GOVERNMENT'
   | 'CPSE_MANAGEMENT'
   | 'PROCUREMENT_TEAM'
   | 'ENGINEERING_EXPERT'
-  | 'INVENTORY_TEAM'
   | 'IT_SAP_TEAM';
 
 export interface UserProfile {
@@ -16,7 +16,11 @@ export interface UserProfile {
   plantLocation: string;
   role: UserRole;
   badgeId: string;
-  avatarColor: string;
+  avatarColor?: string;
+  status?: 'ACTIVE' | 'SUSPENDED';
+  title?: string;
+  department?: string;
+  permissions?: string[];
 }
 
 export interface MaterialRecord {

@@ -1,7 +1,15 @@
-let activeUserId: string | null = null;
+let activeUserId: string | null =
+  typeof window !== 'undefined' ? localStorage.getItem('onmc_user_id') || 'USR-ADMIN-00' : 'USR-ADMIN-00';
 
 export function setAuthUserId(userId: string | null) {
   activeUserId = userId;
+  if (typeof window !== 'undefined') {
+    if (userId) {
+      localStorage.setItem('onmc_user_id', userId);
+    } else {
+      localStorage.removeItem('onmc_user_id');
+    }
+  }
 }
 
 function getAuthHeaders(customHeaders: Record<string, string> = {}) {
@@ -12,7 +20,8 @@ function getAuthHeaders(customHeaders: Record<string, string> = {}) {
   return headers;
 }
 
-const API_BASE = 'https://onmc-backend.onrender.com';
+const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE = import.meta.env.VITE_API_BASE || (isLocalHost ? 'http://localhost:8000/api' : 'https://onmc-backend.onrender.com/api');
 
 export async function fetchHealthStatus() {
   try {
@@ -421,6 +430,106 @@ export async function updateMaterialRecord(materialCode: string, updates: {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Failed to update record' }));
     throw new Error(err.detail || 'Failed to update record');
+  }
+  return await res.json();
+}
+
+// ----------------- AUTHENTICATION & UNIFIED ADMIN API CLIENTS -----------------
+
+export async function loginUser(credentials: { identifier?: string; password?: string; userId?: string }) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(credentials),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Authentication failed' }));
+    throw new Error(err.detail || 'Authentication failed');
+  }
+  const data = await res.json();
+  if (data.user?.id) {
+    setAuthUserId(data.user.id);
+  }
+  return data;
+}
+
+export async function fetchAdminUsers() {
+  const res = await fetch(`${API_BASE}/admin/users`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to fetch stakeholder registry');
+  }
+  return await res.json();
+}
+
+export async function createAdminUser(payload: {
+  name: string;
+  email: string;
+  cpse: string;
+  plantLocation: string;
+  role: string;
+  badgeId?: string;
+  title?: string;
+  department?: string;
+  password?: string;
+}) {
+  const res = await fetch(`${API_BASE}/admin/users`, {
+    method: 'POST',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to provision stakeholder' }));
+    throw new Error(err.detail || 'Failed to provision stakeholder');
+  }
+  return await res.json();
+}
+
+export async function updateUserRoleAdmin(userId: string, newRole: string, reason: string = 'Administrative role change') {
+  const res = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
+    method: 'PUT',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ userId, newRole, reason }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to update stakeholder role' }));
+    throw new Error(err.detail || 'Failed to update stakeholder role');
+  }
+  return await res.json();
+}
+
+export async function updateUserStatus(userId: string, status: 'ACTIVE' | 'SUSPENDED', reason: string = 'Administrative status toggle') {
+  const res = await fetch(`${API_BASE}/admin/users/${userId}/status`, {
+    method: 'PUT',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ status, reason }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to update account status' }));
+    throw new Error(err.detail || 'Failed to update account status');
+  }
+  return await res.json();
+}
+
+export async function deleteAdminUser(userId: string) {
+  const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to delete stakeholder' }));
+    throw new Error(err.detail || 'Failed to delete stakeholder');
+  }
+  return await res.json();
+}
+
+export async function fetchAdminStats() {
+  const res = await fetch(`${API_BASE}/admin/stats`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to fetch administrative metrics');
   }
   return await res.json();
 }

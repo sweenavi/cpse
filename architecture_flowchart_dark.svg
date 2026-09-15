@@ -1,0 +1,209 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 1620" width="100%" height="100%" style="background:#111317; font-family:'JetBrains Mono', 'Fira Code', 'Courier New', monospace;">
+  <defs>
+    <!-- Gradients & Filters -->
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e222b"/>
+      <stop offset="100%" stop-color="#161920"/>
+    </linearGradient>
+    <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#10b981" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glowYellow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#f59e0b" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ef4444" flood-opacity="0.3"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10b981"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- 1. CPSE DATA SOURCES -->
+  <g transform="translate(210, 40)">
+    <rect width="500" height="85" rx="8" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5"/>
+    <text x="250" y="30" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="bold" letter-spacing="1">CPSE DATA SOURCES</text>
+    <text x="250" y="52" text-anchor="middle" fill="#94a3b8" font-size="12">SAP/ERP (MARA/MAKT)  |  PDFs  |  Scanned Blueprints</text>
+    <text x="250" y="70" text-anchor="middle" fill="#94a3b8" font-size="12">Historical Procurement Plans &amp; Rates</text>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <line x1="460" y1="125" x2="460" y2="165" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 2. CPSE EDGE / INGESTION -->
+  <g transform="translate(210, 165)">
+    <rect width="500" height="85" rx="8" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5"/>
+    <text x="250" y="30" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="bold" letter-spacing="1">CPSE EDGE / INGESTION (DPDP Act 2023)</text>
+    <text x="250" y="52" text-anchor="middle" fill="#38bdf8" font-size="12">Agent 6: On-Premise PII &amp; Commercial Redactor</text>
+    <text x="250" y="70" text-anchor="middle" fill="#94a3b8" font-size="12">Agent 2: LayoutLMv3 OCR + Bounding Box Parser</text>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <line x1="460" y1="250" x2="460" y2="290" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 3. DATA STANDARDIZATION -->
+  <g transform="translate(210, 290)">
+    <rect width="500" height="105" rx="8" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5"/>
+    <text x="250" y="30" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="bold" letter-spacing="1">DATA STANDARDIZATION</text>
+    <text x="250" y="54" text-anchor="middle" fill="#94a3b8" font-size="12">Cleaning  |  Domain NER Tokenization</text>
+    <text x="250" y="74" text-anchor="middle" fill="#94a3b8" font-size="12">UoM Normalization (2" -> 50mm, NOS -> EA)</text>
+    <text x="250" y="94" text-anchor="middle" fill="#94a3b8" font-size="12">5-Axis Engineering Attribute Extraction</text>
+  </g>
+
+  <!-- Arrow 3 -> 4 -->
+  <line x1="460" y1="395" x2="460" y2="435" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 4. AI + AGENTIC MATCHING ENGINE -->
+  <g transform="translate(210, 435)">
+    <rect width="500" height="145" rx="8" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5"/>
+    <text x="250" y="28" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="bold" letter-spacing="1">AI + AGENTIC MATCHING ENGINE</text>
+    <text x="35" y="58" fill="#e2e8f0" font-size="12">• Agent 1: Dense Vector Cosine Similarity (BGE Embeddings)</text>
+    <text x="35" y="80" fill="#94a3b8" font-size="12">• Technical Attribute Comparison (Grade/Class/Dim/Spec)</text>
+    <text x="35" y="102" fill="#94a3b8" font-size="12">• Inter-CPSE Duplicate &amp; Cluster Detection</text>
+    <text x="35" y="124" fill="#94a3b8" font-size="12">• Industrial Dictionary Spell-Check (ASTM/ASME/API/IS)</text>
+  </g>
+
+  <!-- Arrow 4 -> 5 -->
+  <line x1="460" y1="580" x2="460" y2="620" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 5. CONFIDENCE & RULE ENGINE -->
+  <g transform="translate(210, 620)">
+    <rect width="500" height="65" rx="8" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5"/>
+    <text x="250" y="28" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="bold" letter-spacing="1">CONFIDENCE &amp; RULE ENGINE</text>
+    <text x="250" y="48" text-anchor="middle" fill="#38bdf8" font-size="11">S_final = 0.45*S_vec + 0.55*S_attr  [Hard-Blocking Penalties]</text>
+  </g>
+
+  <!-- Split Branch Lines to Tri-Tier -->
+  <path d="M 460 685 L 460 715 M 270 715 L 650 715 M 270 715 L 270 745 M 460 715 L 460 745 M 650 715 L 650 745" stroke="#64748b" stroke-width="2" fill="none"/>
+
+  <!-- 6A. GREEN TIER -->
+  <g transform="translate(180, 745)">
+    <rect width="180" height="70" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="1.5" filter="url(#glowGreen)"/>
+    <text x="90" y="28" text-anchor="middle" fill="#34d399" font-size="13" font-weight="bold">🟢 GREEN (>=95%)</text>
+    <text x="90" y="50" text-anchor="middle" fill="#a7f3d0" font-size="11">Autonomous Match</text>
+  </g>
+
+  <!-- 6B. YELLOW TIER -->
+  <g transform="translate(370, 745)">
+    <rect width="180" height="70" rx="8" fill="#78350f" stroke="#f59e0b" stroke-width="1.5" filter="url(#glowYellow)"/>
+    <text x="90" y="28" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="bold">🟡 YELLOW (70-94%)</text>
+    <text x="90" y="50" text-anchor="middle" fill="#fde68a" font-size="11">Human-In-The-Loop</text>
+  </g>
+
+  <!-- 6C. RED TIER -->
+  <g transform="translate(560, 745)">
+    <rect width="180" height="70" rx="8" fill="#7f1d1d" stroke="#ef4444" stroke-width="1.5" filter="url(#glowRed)"/>
+    <text x="90" y="28" text-anchor="middle" fill="#f87171" font-size="13" font-weight="bold">🔴 RED (&lt;70%)</text>
+    <text x="90" y="50" text-anchor="middle" fill="#fecaca" font-size="11">Novel Material</text>
+  </g>
+
+  <!-- Yellow -> Engineering Review -->
+  <line x1="460" y1="815" x2="460" y2="855" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Engineering Expert Review Box -->
+  <g transform="translate(360, 855)">
+    <rect width="200" height="75" rx="8" fill="url(#cardGrad)" stroke="#e2e8f0" stroke-width="1.5"/>
+    <text x="100" y="26" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="bold">Engineering</text>
+    <text x="100" y="44" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="bold">Expert Review</text>
+    <text x="100" y="62" text-anchor="middle" fill="#38bdf8" font-size="10">XAI Diff Matrix &amp; Radar</text>
+  </g>
+
+  <!-- Approve / Reject Paths from Review -->
+  <!-- Green Line Down to Central Registry -->
+  <line x1="270" y1="815" x2="270" y2="1005" stroke="#10b981" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+  <!-- Review Approve Line (Straight Down) -->
+  <line x1="425" y1="930" x2="425" y2="1005" stroke="#10b981" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <rect x="380" y="952" width="65" height="20" rx="4" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+  <text x="412" y="966" text-anchor="middle" fill="#34d399" font-size="9" font-weight="bold">APPROVE</text>
+
+  <!-- Review Reject Line (Branches to Red) -->
+  <path d="M 495 930 L 495 962 L 650 962 L 650 820" stroke="#ef4444" stroke-width="2" fill="none" marker-end="url(#arrowRed)"/>
+  <rect x="530" y="952" width="60" height="20" rx="4" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
+  <text x="560" y="966" text-anchor="middle" fill="#f87171" font-size="9" font-weight="bold">REJECT</text>
+
+  <!-- Red Line Down to Central Registry (New Master Generation) -->
+  <line x1="650" y1="815" x2="650" y2="1005" stroke="#ef4444" stroke-width="2" marker-end="url(#arrowRed)"/>
+
+  <!-- 7. COMMON NATIONAL MATERIAL CODE REGISTRY -->
+  <g transform="translate(135, 1005)">
+    <rect width="650" height="110" rx="10" fill="url(#cardGrad)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="325" y="32" text-anchor="middle" fill="#38bdf8" font-size="15" font-weight="bold" letter-spacing="1">COMMON NATIONAL MATERIAL CODE (CNM-XXXXXX-XXX)</text>
+    <text x="325" y="60" text-anchor="middle" fill="#f8fafc" font-size="13">+ NATIONAL MATERIAL REGISTRY (1:N BACKWARD TRACEABILITY)</text>
+    <text x="325" y="84" text-anchor="middle" fill="#94a3b8" font-size="12">+ CPSE ERP CROSS-REF &amp; SHA-256 TAMPER-PROOF MERKLE LEDGER</text>
+  </g>
+
+  <!-- Arrow to 4 Role Dashboards -->
+  <line x1="460" y1="1115" x2="460" y2="1160" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Enterprise RBAC Container Title -->
+  <g transform="translate(135, 1160)">
+    <rect width="650" height="40" rx="6" fill="#1e1e24" stroke="#475569" stroke-width="1"/>
+    <text x="325" y="25" text-anchor="middle" fill="#f8fafc" font-size="13" font-weight="bold" letter-spacing="1">ROLE-BASED ACCESS CONTROL (RBAC) &amp; 4 ENTERPRISE COCKPITS</text>
+  </g>
+
+  <!-- Split Branch Lines to 4 Persona Dashboards -->
+  <path d="M 460 1200 L 460 1235 M 120 1235 L 800 1235 M 120 1235 L 120 1270 M 345 1235 L 345 1270 M 575 1235 L 575 1270 M 800 1235 L 800 1270" stroke="#64748b" stroke-width="2" fill="none"/>
+
+  <!-- Dashboard 1: Plant Materials Reviewer -->
+  <g transform="translate(20, 1270)">
+    <rect width="200" height="145" rx="8" fill="url(#cardGrad)" stroke="#3b82f6" stroke-width="1.5"/>
+    <rect x="0" y="0" width="200" height="26" rx="8" fill="#1e3a8a"/>
+    <text x="100" y="18" text-anchor="middle" fill="#bfdbfe" font-size="10" font-weight="bold">PLANT MATERIALS REVIEWER</text>
+    <text x="100" y="48" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="bold">Adjudication Cockpit</text>
+    <text x="15" y="74" fill="#94a3b8" font-size="10">• Yellow Tier Review Queue</text>
+    <text x="15" y="94" fill="#94a3b8" font-size="10">• 5-Axis Factor Radar Chart</text>
+    <text x="15" y="114" fill="#94a3b8" font-size="10">• Legacy OCR Parser (A2)</text>
+    <text x="15" y="132" fill="#60a5fa" font-size="9">CPCL / IOCL Plant Engineers</text>
+  </g>
+
+  <!-- Dashboard 2: Central Sourcing Director -->
+  <g transform="translate(245, 1270)">
+    <rect width="200" height="145" rx="8" fill="url(#cardGrad)" stroke="#10b981" stroke-width="1.5"/>
+    <rect x="0" y="0" width="200" height="26" rx="8" fill="#064e3b"/>
+    <text x="100" y="18" text-anchor="middle" fill="#a7f3d0" font-size="10" font-weight="bold">CENTRAL SOURCING LEAD</text>
+    <text x="100" y="48" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="bold">Sourcing Simulator</text>
+    <text x="15" y="74" fill="#94a3b8" font-size="10">• Price Dispersion (PDI)</text>
+    <text x="15" y="94" fill="#94a3b8" font-size="10">• Volume Discount Curve</text>
+    <text x="15" y="114" fill="#94a3b8" font-size="10">• MSE Order 2012 Quotas</text>
+    <text x="15" y="132" fill="#34d399" font-size="9">MoPNG Procurement Lead</text>
+  </g>
+
+  <!-- Dashboard 3: Chief Vigilance Officer -->
+  <g transform="translate(475, 1270)">
+    <rect width="200" height="145" rx="8" fill="url(#cardGrad)" stroke="#f43f5e" stroke-width="1.5"/>
+    <rect x="0" y="0" width="200" height="26" rx="8" fill="#881337"/>
+    <text x="100" y="18" text-anchor="middle" fill="#fecdd3" font-size="10" font-weight="bold">CHIEF VIGILANCE OFFICER</text>
+    <text x="100" y="48" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="bold">Vigilance &amp; Drift Monitor</text>
+    <text x="15" y="74" fill="#94a3b8" font-size="10">• Real-Time SAP MAKT Drift</text>
+    <text x="15" y="94" fill="#94a3b8" font-size="10">• SHA-256 Merkle Ledger</text>
+    <text x="15" y="114" fill="#94a3b8" font-size="10">• One-Click BAPI Rollback</text>
+    <text x="15" y="132" fill="#fb7185" font-size="9">CVO / CAG Audit Division</text>
+  </g>
+
+  <!-- Dashboard 4: Master Data & ERP Admin -->
+  <g transform="translate(700, 1270)">
+    <rect width="200" height="145" rx="8" fill="url(#cardGrad)" stroke="#f59e0b" stroke-width="1.5"/>
+    <rect x="0" y="0" width="200" height="26" rx="8" fill="#78350f"/>
+    <text x="100" y="18" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="bold">MASTER DATA ADMIN</text>
+    <text x="100" y="48" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="bold">National Catalog Hub</text>
+    <text x="15" y="74" fill="#94a3b8" font-size="10">• 1:N National Catalog Search</text>
+    <text x="15" y="94" fill="#94a3b8" font-size="10">• Drag &amp; Drop CSV Uploader</text>
+    <text x="15" y="114" fill="#94a3b8" font-size="10">• SAP S/4HANA Mass Export</text>
+    <text x="15" y="132" fill="#fbbf24" font-size="9">Central ERP Administrators</text>
+  </g>
+
+  <!-- Bottom Enterprise Footer Pill -->
+  <g transform="translate(185, 1465)">
+    <rect width="550" height="40" rx="20" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="275" y="25" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="bold" letter-spacing="1">
+      DIGITAL PUBLIC INFRASTRUCTURE (DPI) // ONE NATION – ONE MATERIAL CODE
+    </text>
+  </g>
+</svg>

@@ -77,11 +77,13 @@ export function DuplicateClusterView({ currentUser }: DuplicateClusterProps) {
               </h2>
               {currentUser && (
                 <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${
-                  currentUser.role === 'INVENTORY_TEAM'
+                  currentUser.role === 'CPSE_MANAGEMENT' || currentUser.role === 'PROCUREMENT_TEAM' || currentUser.role === 'SUPER_ADMIN'
                     ? 'bg-amber-50 text-amber-700 border-amber-200'
                     : 'bg-slate-100 text-slate-700 border-slate-200'
                 }`}>
-                  {currentUser.role === 'INVENTORY_TEAM' ? 'INVENTORY CONTROLLER: SAFETY STOCK POOLING ACTIVE' : 'INVENTORY TELEMETRY'}
+                  {currentUser.role === 'CPSE_MANAGEMENT' || currentUser.role === 'PROCUREMENT_TEAM' || currentUser.role === 'SUPER_ADMIN'
+                    ? 'STOCK CONTROLLER: SAFETY STOCK POOLING ACTIVE'
+                    : 'INVENTORY TELEMETRY'}
                 </span>
               )}
             </div>
@@ -265,9 +267,9 @@ export function DuplicateClusterView({ currentUser }: DuplicateClusterProps) {
                 <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
                   <CheckCircle2 className="w-4 h-4" /> Recommended MoPNG Action
                 </div>
-                {currentUser?.role !== 'INVENTORY_TEAM' ? (
+                {currentUser?.role !== 'CPSE_MANAGEMENT' && currentUser?.role !== 'PROCUREMENT_TEAM' && currentUser?.role !== 'SUPER_ADMIN' ? (
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 rounded-lg text-xs font-sans max-w-xs text-center font-bold">
-                    View-Only: Safety Stock Pooling is restricted to Inventory Team.
+                    View-Only: Safety Stock Pooling is restricted to Plant Management &amp; Sourcing Teams.
                   </div>
                 ) : (
                   <button

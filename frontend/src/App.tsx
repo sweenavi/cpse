@@ -6,7 +6,7 @@ import type {
   AuditLedgerBlock,
   UserProfile,
 } from './types';
-import { AuthModal } from './components/AuthModal';
+import { AuthModal, DEMO_PROFILES_EXTENDED } from './components/AuthModal';
 import { ReviewerPortalView } from './views/ReviewerPortalView';
 import { RegistryExplorerView } from './views/RegistryExplorerView';
 import { DuplicateClusterView } from './views/DuplicateClusterView';
@@ -17,6 +17,7 @@ import { LegacyMigrationView } from './views/LegacyMigrationView';
 import { MoPNGGovernanceView } from './views/MoPNGGovernanceView';
 import { CPSEManagementView } from './views/CPSEManagementView';
 import { ProcurementCockpitView } from './views/ProcurementCockpitView';
+import { AdminDashboardView } from './views/AdminDashboardView';
 import {
   fetchAllRecords,
   fetchAllMasters,
@@ -27,12 +28,6 @@ import {
   setAuthUserId,
   getExportCSVUrl,
 } from './services/api';
-import {
-  RAW_BENCHMARK_RECORDS,
-  NATIONAL_MASTERS_CATALOG,
-  ADJUDICATION_QUEUE,
-  INITIAL_AUDIT_LEDGER,
-} from './data/mockData';
 import {
   Home,
   CheckSquare,
@@ -56,9 +51,12 @@ import {
   ArrowRight,
   ShieldCheck,
   Activity,
+  KeyRound,
+  LogOut,
 } from 'lucide-react';
 
 type ActiveTab =
+  | 'ADMIN_PORTAL'
   | 'OVERVIEW'
   | 'REVIEWER'
   | 'REGISTRY'
@@ -68,8 +66,9 @@ type ActiveTab =
   | 'VIGILANCE'
   | 'LEGACY_MIGRATION';
 
-// Dashboard Access Authority Matrix per Specification
+// Dashboard Access Authority Matrix per Specification (5 Core Stakeholders + Super Admin)
 const ROLE_ALLOWED_TABS: Record<string, ActiveTab[]> = {
+  SUPER_ADMIN: ['ADMIN_PORTAL', 'OVERVIEW', 'REGISTRY', 'REVIEWER', 'DUPLICATES', 'SIMULATOR', 'OCR', 'VIGILANCE', 'LEGACY_MIGRATION'],
   MOPNG_GOVERNMENT: ['OVERVIEW', 'REGISTRY', 'REVIEWER', 'SIMULATOR', 'VIGILANCE'],
   CPSE_MANAGEMENT: ['OVERVIEW', 'REGISTRY', 'REVIEWER', 'DUPLICATES', 'SIMULATOR', 'OCR', 'VIGILANCE', 'LEGACY_MIGRATION'],
   PROCUREMENT_TEAM: ['SIMULATOR', 'REGISTRY', 'OVERVIEW'],
@@ -78,6 +77,7 @@ const ROLE_ALLOWED_TABS: Record<string, ActiveTab[]> = {
 };
 
 const DEFAULT_ROLE_TAB: Record<string, ActiveTab> = {
+  SUPER_ADMIN: 'ADMIN_PORTAL',
   MOPNG_GOVERNMENT: 'REGISTRY',
   CPSE_MANAGEMENT: 'REGISTRY',
   PROCUREMENT_TEAM: 'SIMULATOR',
@@ -86,54 +86,83 @@ const DEFAULT_ROLE_TAB: Record<string, ActiveTab> = {
 };
 
 export function App() {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('onmc_user');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+    }
+    return null; // Gateway Entry Point: Direct to official Login & Sign-Up Gateway
+  });
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('REGISTRY');
 
-  // Core Data States
-  const [records, setRecords] = useState<MaterialRecord[]>(RAW_BENCHMARK_RECORDS);
-  const [masters, setMasters] = useState<NationalMaterialMaster[]>(NATIONAL_MASTERS_CATALOG);
-  const [queue, setQueue] = useState<AdjudicationCandidate[]>(ADJUDICATION_QUEUE);
-  const [ledger, setLedger] = useState<AuditLedgerBlock[]>(INITIAL_AUDIT_LEDGER);
+  // Core Data States (100% Live FastAPI backend synchronization, zero mock data)
+  const [records, setRecords] = useState<MaterialRecord[]>([]);
+  const [masters, setMasters] = useState<NationalMaterialMaster[]>([]);
+  const [queue, setQueue] = useState<AdjudicationCandidate[]>([]);
+  const [ledger, setLedger] = useState<AuditLedgerBlock[]>([]);
   const [backendConnected, setBackendConnected] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Reusable loader that pulls all live backend tables
+  const loadBackendData = async () => {
+    try {
+      setIsLoadingData(true);
+      const health = await fetchHealthStatus();
+      if (health && health.status === 'HEALTHY') {
+        setBackendConnected(true);
+      }
+      const [recs, msts, q, ledgRes] = await Promise.all([
+        fetchAllRecords(),
+        fetchAllMasters(),
+        fetchAdjudicationQueue(),
+        fetchLedgerBlocks(),
+      ]);
+      if (recs && Array.isArray(recs) && recs.length > 0) setRecords(recs);
+      if (msts && Array.isArray(msts) && msts.length > 0) setMasters(msts);
+      if (q && Array.isArray(q) && q.length > 0) setQueue(q);
+      if (ledgRes && ledgRes.ledgerBlocks) setLedger(ledgRes.ledgerBlocks);
+    } catch (err) {
+      console.warn('Backend load error:', err);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   // Ingest from FastAPI Backend on Mount
   useEffect(() => {
-    async function loadBackendData() {
-      try {
-        const health = await fetchHealthStatus();
-        if (health && health.status === 'HEALTHY') {
-          setBackendConnected(true);
-          const [recs, msts, q, ledgRes] = await Promise.all([
-            fetchAllRecords(),
-            fetchAllMasters(),
-            fetchAdjudicationQueue(),
-            fetchLedgerBlocks(),
-          ]);
-          if (recs && recs.length > 0) setRecords(recs);
-          if (msts && msts.length > 0) setMasters(msts);
-          if (q && q.length > 0) setQueue(q);
-          if (ledgRes && ledgRes.ledgerBlocks) setLedger(ledgRes.ledgerBlocks);
-        }
-      } catch (err) {
-        console.warn('FastAPI backend offline, running in standalone mode:', err);
-      }
-    }
     loadBackendData();
   }, []);
 
   const handleLogin = (user: UserProfile) => {
     setAuthUserId(user.id);
     setCurrentUser(user);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('onmc_user', JSON.stringify(user));
+      localStorage.setItem('onmc_user', JSON.stringify(user));
+      localStorage.setItem('onmc_user_id', user.id);
+    }
     setIsAuthModalOpen(false);
     const defaultTab = DEFAULT_ROLE_TAB[user.role] || 'REGISTRY';
     setActiveTab(defaultTab);
+    loadBackendData();
   };
 
   const handleLogout = () => {
     setAuthUserId(null);
     setCurrentUser(null);
-    setIsAuthModalOpen(true);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('onmc_user');
+      localStorage.removeItem('onmc_user_id');
+      sessionStorage.removeItem('onmc_user');
+      sessionStorage.removeItem('onmc_user_id');
+    }
+    setIsAuthModalOpen(false);
   };
 
   const isTabPermitted = (tab: ActiveTab) => {
@@ -210,28 +239,43 @@ export function App() {
           <div className="flex items-center gap-3">
             {/* Active Role Selector Pill */}
             {currentUser && (
-              <button
-                onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-2 bg-[#1e293b] hover:bg-slate-700/80 border border-slate-700/80 px-3 py-1.5 rounded-lg text-left transition-all cursor-pointer text-xs"
-              >
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">Role:</span>
-                <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-[10px]">
-                  🌐
-                </span>
-                <span className="font-semibold text-slate-200 text-xs">
-                  {currentUser.role === 'MOPNG_GOVERNMENT'
-                    ? 'MoPNG Government'
-                    : currentUser.role === 'CPSE_MANAGEMENT'
-                    ? `${currentUser.cpse} Management`
-                    : currentUser.role === 'ENGINEERING_EXPERT'
-                    ? 'Engineering Expert'
-                    : currentUser.role === 'PROCUREMENT_TEAM'
-                    ? 'Procurement Team'
-                    : 'IT / SAP Team'}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
+              <div className="flex items-center gap-2">
+                {currentUser.role === 'SUPER_ADMIN' && activeTab !== 'ADMIN_PORTAL' && (
+                  <button
+                    onClick={() => setActiveTab('ADMIN_PORTAL')}
+                    className="flex items-center gap-1.5 bg-gradient-to-r from-rose-600 to-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm hover:from-rose-500 hover:to-indigo-500 transition-all cursor-pointer ring-1 ring-white/20"
+                    title="Return to National Admin Portal"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Admin Portal</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="flex items-center gap-2 bg-[#1e293b] hover:bg-slate-700/80 border border-slate-700/80 px-3 py-1.5 rounded-lg text-left transition-all cursor-pointer text-xs"
+                >
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Role:</span>
+                  <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-[10px]">
+                    🌐
+                  </span>
+                  <span className="font-semibold text-slate-200 text-xs">
+                    {currentUser.role === 'SUPER_ADMIN'
+                      ? '👑 National Admin Portal'
+                      : currentUser.role === 'MOPNG_GOVERNMENT'
+                      ? 'MoPNG Government'
+                      : currentUser.role === 'CPSE_MANAGEMENT'
+                      ? `${currentUser.cpse} Management`
+                      : currentUser.role === 'ENGINEERING_EXPERT'
+                      ? 'Engineering Expert'
+                      : currentUser.role === 'PROCUREMENT_TEAM'
+                      ? 'Procurement Team'
+                      : 'IT / SAP Team'}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+              </div>
             )}
+
 
             {/* Notification Bell with Badge */}
             <div className="relative cursor-pointer p-1.5 text-slate-400 hover:text-white transition-colors">
@@ -251,18 +295,35 @@ export function App() {
               <Shield className="w-4 h-4 text-emerald-400" />
             </div>
 
-            {/* User Profile Avatar & Name */}
-            {currentUser && (
-              <div
-                onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-2 pl-2 border-l border-slate-700/80 cursor-pointer"
-              >
-                <div className="w-7 h-7 rounded-full bg-slate-700 text-white flex items-center justify-center font-bold text-xs">
-                  <User className="w-4 h-4 text-slate-300" />
+            {/* User Profile Avatar & Name + Logout Button */}
+            {currentUser ? (
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-700/80">
+                <div
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                  title="Switch Persona / View Profile"
+                >
+                  <div className="w-7 h-7 rounded-full bg-slate-700 text-white flex items-center justify-center font-bold text-xs">
+                    <User className="w-4 h-4 text-slate-300" />
+                  </div>
+                  <div className="hidden lg:block text-xs font-semibold text-slate-200">
+                    {currentUser.name}
+                  </div>
                 </div>
-                <div className="hidden lg:block text-xs font-semibold text-slate-200">
-                  {currentUser.name}
-                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="ml-2 flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white border border-rose-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs"
+                  title="Sign out of current account"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-700/80 text-xs text-slate-400 font-mono">
+                <Shield className="w-3.5 h-3.5 text-rose-400" />
+                <span className="hidden sm:inline">Official Access Portal</span>
               </div>
             )}
           </div>
@@ -300,9 +361,37 @@ export function App() {
 
             {/* Numbered Navigation Tabs List Matching Reference */}
             <div className="px-3 py-1 space-y-1 flex-1 overflow-y-auto text-xs">
+              {/* [0] Unified Admin Portal (Accessible to Super Admin) */}
+              {isTabPermitted('ADMIN_PORTAL') && (
+                <button
+                  onClick={() => setActiveTab('ADMIN_PORTAL')}
+                  className={`w-full p-2.5 rounded-xl flex items-start gap-3 transition-all cursor-pointer text-left mb-2 border ${
+                    activeTab === 'ADMIN_PORTAL'
+                      ? 'bg-gradient-to-r from-rose-700 via-indigo-700 to-indigo-800 text-white font-bold shadow-md border-rose-500/50'
+                      : 'bg-indigo-950/40 text-indigo-200 border-indigo-900/60 hover:bg-indigo-900/40 hover:text-white'
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded bg-rose-600 text-white flex items-center justify-center text-[10px] font-mono font-bold mt-0.5 shadow-2xs">
+                    ★
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-xs leading-tight flex items-center gap-1.5">
+                      <span>Admin Portal</span>
+                      <span className="text-[8px] bg-rose-500/30 text-rose-300 px-1 py-0.2 rounded font-mono font-bold">
+                        CONTROL
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-indigo-300/80 font-normal truncate">
+                      Role Assignment &amp; Auth
+                    </div>
+                  </div>
+                </button>
+              )}
+
               {/* [1] Reviewer Portal */}
               <button
                 onClick={() => isTabPermitted('REVIEWER') && setActiveTab('REVIEWER')}
+
                 disabled={!isTabPermitted('REVIEWER')}
                 className={`w-full p-2.5 rounded-lg flex items-start gap-3 transition-all cursor-pointer text-left ${
                   activeTab === 'REVIEWER'
@@ -531,6 +620,15 @@ export function App() {
                   <span>Switch Role</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 cursor-pointer"
+                  title="Sign out of current account"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span>Logout</span>
+                </button>
               </div>
             </div>
           </aside>
@@ -570,8 +668,19 @@ export function App() {
               </>
             )}
 
+            {/* Dashboard: Unified Admin Portal */}
+            {activeTab === 'ADMIN_PORTAL' && (
+              <AdminDashboardView
+                currentUser={currentUser}
+                onImpersonateUser={(user) => {
+                  handleLogin(user);
+                }}
+              />
+            )}
+
             {/* Dashboard 2: National Registry */}
             {activeTab === 'REGISTRY' && (
+
               <RegistryExplorerView
                 masters={masters}
                 records={records}
@@ -588,6 +697,7 @@ export function App() {
             {activeTab === 'REVIEWER' && (
               <ReviewerPortalView
                 queue={queue}
+                records={records}
                 onApprove={handleApproveCandidate}
                 onReject={handleRejectCandidate}
                 currentUser={currentUser}
@@ -606,7 +716,7 @@ export function App() {
 
             {/* Dashboard 4: Strategic Sourcing Simulator */}
             {activeTab === 'SIMULATOR' && (
-              <SourcingSimulatorView currentUser={currentUser} />
+              <SourcingSimulatorView currentUser={currentUser} records={records} />
             )}
 
             {/* Dashboard 5: Legacy OCR Inspector */}

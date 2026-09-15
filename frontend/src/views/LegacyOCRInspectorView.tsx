@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import type { UserProfile } from '../types';
+import { useState, useRef, useMemo } from 'react';
+import type { UserProfile, MaterialRecord } from '../types';
 import { 
   FileText, CheckCircle2, AlertTriangle, Play, RefreshCw, UploadCloud, 
   Image as ImageIcon, X, FileUp, Zap, Clock, Search, Filter, MoreHorizontal, 
@@ -10,29 +10,50 @@ import { uploadOCRImage } from '../services/api';
 
 interface LegacyOCRInspectorProps {
   currentUser?: UserProfile | null;
+  records?: MaterialRecord[];
   onNavigateTab?: (tabId: any) => void;
 }
 
-// Mock Data for Recent Uploads Table
-const RECENT_UPLOADS = [
-  { id: '1', name: 'IOCL_MM_Scanned_001.pdf', type: 'PDF (Scanned)', pages: 45, records: 182, status: 'Processing', date: '28 Aug 2025, 10:30 AM' },
-  { id: '2', name: 'IOCL_Old_MM_Inventory.xlsx', type: 'Excel', pages: 3, records: 320, status: 'Extraction Completed', date: '28 Aug 2025, 10:20 AM' },
-  { id: '3', name: 'IOCL_Catalogue_Page12.jpg', type: 'JPG', pages: 1, records: 28, status: 'Needs Validation', date: '28 Aug 2025, 10:05 AM' },
-  { id: '4', name: 'Handwritten_List_1998.png', type: 'PNG (Handwritten)', pages: 2, records: 16, status: 'Low Confidence', date: '28 Aug 2025, 09:50 AM' },
-  { id: '5', name: 'IOCL_Technical_Specs.pdf', type: 'PDF', pages: 12, records: 96, status: 'Extraction Completed', date: '28 Aug 2025, 09:40 AM' },
-  { id: '6', name: 'Corrupted_File.pdf', type: 'PDF', pages: '-', records: 0, status: 'Failed', date: '28 Aug 2025, 09:30 AM' }
-];
-
-const EXTRACTED_RECORDS = [
-  { id: 'EX-9921', desc: 'BALL VALVE 2" 150# WCB BODY SS316', source: 'IOCL_Catalogue_Page12.jpg', confidence: 94, status: 'Needs Validation' },
-  { id: 'EX-9922', desc: 'SEAMLESS PIPE CS ASTM A106 GR B', source: 'IOCL_Catalogue_Page12.jpg', confidence: 99, status: 'Validated' },
-  { id: 'EX-9923', desc: 'GATE VALVE 4" 300# FLANGED', source: 'IOCL_MM_Scanned_001.pdf', confidence: 82, status: 'Low Confidence' },
-  { id: 'EX-9924', desc: 'CHECK VALVE 6" 150# WCB', source: 'IOCL_MM_Scanned_001.pdf', confidence: 97, status: 'Validated' },
-  { id: 'EX-9925', desc: 'FLANGE WELD NECK 8" 150# RF', source: 'IOCL_Old_MM_Inventory.xlsx', confidence: 100, status: 'Validated' },
-];
-
-export function LegacyOCRInspectorView({ currentUser, onNavigateTab }: LegacyOCRInspectorProps) {
+export function LegacyOCRInspectorView({ currentUser, records = [], onNavigateTab }: LegacyOCRInspectorProps) {
   const [viewMode, setViewMode] = useState<'DASHBOARD' | 'EXTRACTED_RECORDS'>('DASHBOARD');
+  
+  const dynamicRecentUploads = useMemo(() => {
+    if (!records || records.length === 0) {
+      return [
+        { id: '1', name: 'IOCL_MM_Batch_001.pdf', type: 'PDF (Legacy Specification)', pages: 45, records: 182, status: 'Extraction Completed', date: '28 Aug 2025, 10:30 AM' },
+        { id: '2', name: 'CPCL_Materials_Inventory.xlsx', type: 'Excel Master', pages: 3, records: 111, status: 'Extraction Completed', date: '28 Aug 2025, 10:20 AM' },
+      ];
+    }
+    const cpseGroups = new Map<string, number>();
+    records.forEach(r => {
+      cpseGroups.set(r.cpseName, (cpseGroups.get(r.cpseName) || 0) + 1);
+    });
+    return Array.from(cpseGroups.entries()).map(([cpse, count], i) => ({
+      id: `${i + 1}`,
+      name: `${cpse}_Material_Master_Ingestion.csv`,
+      type: 'Industrial CSV Dataset',
+      pages: Math.ceil(count / 10),
+      records: count,
+      status: 'Extraction Completed',
+      date: 'Live Benchmark Feed',
+    }));
+  }, [records]);
+
+  const dynamicExtractedRecords = useMemo(() => {
+    if (!records || records.length === 0) {
+      return [
+        { id: 'EX-9921', desc: 'BALL VALVE 2" 150# WCB BODY SS316', source: 'CPCL Ingestion Batch', confidence: 94, status: 'Needs Validation' },
+      ];
+    }
+    return records.slice(0, 35).map((r, i) => ({
+      id: `EX-${r.materialCodeCPSE || 1000 + i}`,
+      desc: r.materialDescriptionRaw || r.groundTruthStandardName,
+      source: `${r.cpseName}_Dataset`,
+      confidence: Math.round((r.attributeSimilarity || 0.92) * 100),
+      status: r.mappingStatus === 'Approved' ? 'Validated' : 'Needs Validation',
+      record: r,
+    }));
+  }, [records]);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -142,14 +163,14 @@ export function LegacyOCRInspectorView({ currentUser, onNavigateTab }: LegacyOCR
         <>
           {/* KPI CARDS */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<FileText className="w-4 h-4 text-blue-600" />} label="Total Documents" value="1,248" sub="All time" color="blue" /></div>
-            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<FileUp className="w-4 h-4 text-emerald-600" />} label="Uploaded Today" value="156" sub="↑ 12% vs yesterday" color="emerald" subColor="text-emerald-600" /></div>
-            <KPICard icon={<RefreshCw className="w-4 h-4 text-purple-600" />} label="Processing" value="32" sub="In progress" color="purple" />
-            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<Scan className="w-4 h-4 text-indigo-600" />} label="Extraction Completed" value="1,108" sub="Success" color="indigo" /></div>
-            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<AlertTriangle className="w-4 h-4 text-amber-600" />} label="Needs Validation" value="214" sub="Low/Medium Confidence" color="amber" /></div>
-            <KPICard icon={<X className="w-4 h-4 text-rose-600" />} label="Failed" value="18" sub="Action Required" color="rose" subColor="text-rose-600" />
-            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<Database className="w-4 h-4 text-teal-600" />} label="Records Created" value="9,842" sub="All time" color="teal" /></div>
-            <KPICard icon={<ArrowRight className="w-4 h-4 text-fuchsia-600" />} label="Sent to Review" value="3,421" sub="This Month" color="fuchsia" />
+            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<FileText className="w-4 h-4 text-blue-600" />} label="Total Documents" value={dynamicRecentUploads.length.toString()} sub="CPSE Batches" color="blue" /></div>
+            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<FileUp className="w-4 h-4 text-emerald-600" />} label="Active Batches" value={dynamicRecentUploads.length.toString()} sub="Live connected" color="emerald" subColor="text-emerald-600" /></div>
+            <KPICard icon={<RefreshCw className="w-4 h-4 text-purple-600" />} label="Processing" value="0" sub="Queue clear" color="purple" />
+            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<Scan className="w-4 h-4 text-indigo-600" />} label="Extraction Completed" value={(records?.length || 0).toLocaleString()} sub="Success" color="indigo" /></div>
+            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<AlertTriangle className="w-4 h-4 text-amber-600" />} label="Needs Validation" value={(records?.filter(r => r.mappingStatus !== 'Approved').length || 0).toString()} sub="Low/Med Conf." color="amber" /></div>
+            <KPICard icon={<X className="w-4 h-4 text-rose-600" />} label="Failed" value="0" sub="All Ingested" color="rose" subColor="text-rose-600" />
+            <div onClick={() => setViewMode('EXTRACTED_RECORDS')} className="cursor-pointer hover:shadow-md transition-shadow"><KPICard icon={<Database className="w-4 h-4 text-teal-600" />} label="Records Created" value={(records?.length || 0).toLocaleString()} sub="Database" color="teal" /></div>
+            <KPICard icon={<ArrowRight className="w-4 h-4 text-fuchsia-600" />} label="Sent to Review" value={(records?.filter(r => r.mappingStatus !== 'Approved').length || 0).toString()} sub="Adjudication" color="fuchsia" />
           </div>
 
           {/* MIDDLE ROW */}
@@ -260,45 +281,45 @@ export function LegacyOCRInspectorView({ currentUser, onNavigateTab }: LegacyOCR
                   <div className="grid grid-cols-2 gap-4 text-xs mb-6">
                     <div>
                       <div className="text-slate-500 mb-0.5">Uploaded by</div>
-                      <div className="font-bold text-slate-800">Ravi Kumar</div>
+                      <div className="font-bold text-slate-800">{currentUser?.name || 'CPSE Ingestion Agent'}</div>
                     </div>
                     <div>
                       <div className="text-slate-500 mb-0.5">CPSE</div>
-                      <div className="font-bold text-slate-800">IOCL</div>
+                      <div className="font-bold text-slate-800">{currentUser?.cpse || 'National Cluster'}</div>
                     </div>
                     <div className="col-span-2">
-                      <div className="text-slate-500 mb-0.5">Uploaded on</div>
-                      <div className="font-bold text-slate-800">28 Aug 2025, 10:30 AM</div>
+                      <div className="text-slate-500 mb-0.5">Dataset Ingestion</div>
+                      <div className="font-bold text-slate-800">SIH Synthetic Material Master Catalog</div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-4 gap-2 text-center border-t border-slate-100 pt-4">
                     <div>
-                      <div className="text-[10px] text-slate-500 mb-1">Files</div>
-                      <div className="text-lg font-bold text-slate-800">24</div>
+                      <div className="text-[10px] text-slate-500 mb-1">Batches</div>
+                      <div className="text-lg font-bold text-slate-800">{dynamicRecentUploads.length}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-slate-500 mb-1">Pages / Sheets</div>
-                      <div className="text-lg font-bold text-slate-800">312</div>
+                      <div className="text-[10px] text-slate-500 mb-1">CPSE Sources</div>
+                      <div className="text-lg font-bold text-slate-800">{dynamicRecentUploads.length}</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-500 mb-1">Records Detected</div>
-                      <div className="text-lg font-bold text-slate-800">1,248</div>
+                      <div className="text-lg font-bold text-slate-800">{(records?.length || 0).toLocaleString()}</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-500 mb-1">Extracted</div>
-                      <div className="text-lg font-bold text-slate-800">842</div>
+                      <div className="text-lg font-bold text-slate-800">{(records?.length || 0).toLocaleString()}</div>
                     </div>
                   </div>
                 </div>
                 
                 <div className="mt-6">
                   <div className="flex justify-between text-[10px] font-bold mb-1.5">
-                    <span className="text-slate-600">Overall Progress</span>
-                    <span className="text-blue-700">68%</span>
+                    <span className="text-slate-600">Standardization Progress</span>
+                    <span className="text-blue-700">100%</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-600 rounded-full" style={{ width: '68%' }}></div>
+                    <div className="h-full bg-blue-600 rounded-full" style={{ width: '100%' }}></div>
                   </div>
                 </div>
               </div>
@@ -310,25 +331,25 @@ export function LegacyOCRInspectorView({ currentUser, onNavigateTab }: LegacyOCR
             {/* Recent Uploads Table */}
             <div className="lg:col-span-8 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
               <div className="flex justify-between items-center p-4 border-b border-slate-200">
-                <h3 className="text-sm font-bold text-slate-800 border-l-4 border-blue-600 pl-2">Recent Uploads</h3>
-                <button className="text-xs font-bold text-blue-600 hover:underline">View All</button>
+                <h3 className="text-sm font-bold text-slate-800 border-l-4 border-blue-600 pl-2">Recent Ingestion Batches</h3>
+                <span className="text-xs font-mono font-bold text-slate-500">{dynamicRecentUploads.length} CPSE Ingestion Streams</span>
               </div>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/50 text-[10px] uppercase text-slate-500 border-b border-slate-200">
-                      <th className="p-3 font-bold">File Name</th>
+                      <th className="p-3 font-bold">Batch Source</th>
                       <th className="p-3 font-bold">Type</th>
-                      <th className="p-3 font-bold text-center">Pages / Sheets</th>
+                      <th className="p-3 font-bold text-center">Batches</th>
                       <th className="p-3 font-bold text-center">Records Detected</th>
                       <th className="p-3 font-bold">Status</th>
-                      <th className="p-3 font-bold">Uploaded On</th>
+                      <th className="p-3 font-bold">Source Sync</th>
                       <th className="p-3 font-bold text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
-                    {RECENT_UPLOADS.map((file) => (
+                    {dynamicRecentUploads.map((file) => (
                       <tr key={file.id} className="hover:bg-slate-50 transition-colors">
                         <td className="p-3">
                           <div className="flex items-center gap-2">
@@ -476,7 +497,7 @@ export function LegacyOCRInspectorView({ currentUser, onNavigateTab }: LegacyOCR
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
-                {EXTRACTED_RECORDS.map((rec) => (
+                {dynamicExtractedRecords.map((rec) => (
                   <tr key={rec.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="p-3 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
                     <td className="p-3 font-mono font-bold text-slate-700">{rec.id}</td>

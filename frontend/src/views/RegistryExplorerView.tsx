@@ -320,7 +320,7 @@ export function RegistryExplorerView({
     });
   }, [filteredMasters, sortField, sortDirection]);
 
-  const displayTotalResults = filteredMasters.length >= 80 ? '1,284,920' : filteredMasters.length.toLocaleString();
+  const displayTotalResults = filteredMasters.length.toLocaleString();
   const totalPages = Math.ceil(sortedMasters.length / pageSize) || 1;
   const paginatedMasters = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -336,75 +336,13 @@ export function RegistryExplorerView({
         r.existingClassificationCode === selectedMaster.unspscCode
     );
     if (direct.length > 0) return direct;
-    // Fallback representative mappings for rich visualization
-    return [
-      {
-        rowId: 1,
-        cpseName: 'CPCL',
-        materialCodeCPSE: 'CPCL-458921',
-        materialDescriptionRaw: 'CS PIPE 2IN SCH40 ASTM A106 GR.B SMLS',
-        specificationRaw: selectedMaster.standardSpec,
-        sourceSystem: 'SAP S/4HANA',
-        unitOfMeasurement: selectedMaster.baseUoM || 'MTR',
-        existingClassificationCode: selectedMaster.unspscCode,
-        plantLocation: 'Manali Refinery, Chennai (Plant 1010)',
-        annualProcuredQty: selectedMaster.annualTotalVolume || 1200,
-        avgUnitPriceINR: selectedMaster.lowestUnitPriceINR || 1250,
-        vendorName: 'Approved Mill Supplies Ltd',
-        groundTruthClusterId: 'Cluster DC-1842',
-        groundTruthStandardName: selectedMaster.standardizedName,
-        groundTruthNationalCode: selectedMaster.nationalCode,
-        status: 'SYNCED',
-        mappingStatus: 'Approved',
-        reviewRef: (selectedMaster as any).reviewRef || 'REV-2025-4187',
-        approvedBy: (selectedMaster as any).approvedBy || 'Er. Rajesh Kulkarni (ONGC)',
-        approvalDate: '26 Aug 2025',
-      },
-      {
-        rowId: 2,
-        cpseName: 'IOCL',
-        materialCodeCPSE: 'IOCL-893201',
-        materialDescriptionRaw: 'CARBON STEEL SEAMLESS PIPE 2" NB SCH40 A106-B',
-        specificationRaw: selectedMaster.standardSpec,
-        sourceSystem: 'Legacy OCR',
-        unitOfMeasurement: selectedMaster.baseUoM || 'MTR',
-        existingClassificationCode: selectedMaster.unspscCode,
-        plantLocation: 'Panipat Refinery, Haryana (Plant 2020)',
-        annualProcuredQty: 2400,
-        avgUnitPriceINR: (selectedMaster.lowestUnitPriceINR || 1250) * 1.05,
-        vendorName: 'Bharat Petroleum Piping Corp',
-        groundTruthClusterId: 'Cluster DC-1842',
-        groundTruthStandardName: selectedMaster.standardizedName,
-        groundTruthNationalCode: selectedMaster.nationalCode,
-        status: 'SYNCED',
-        mappingStatus: 'Approved',
-        reviewRef: (selectedMaster as any).reviewRef || 'REV-2025-4187',
-        approvedBy: (selectedMaster as any).approvedBy || 'Er. Rajesh Kulkarni (ONGC)',
-        approvalDate: '26 Aug 2025',
-      },
-      {
-        rowId: 3,
-        cpseName: 'ONGC',
-        materialCodeCPSE: 'ONGC-771201',
-        materialDescriptionRaw: 'MS PIPE 2 INCH SCH 40 ASTM A106 GRADE B',
-        specificationRaw: selectedMaster.standardSpec,
-        sourceSystem: 'Excel Master',
-        unitOfMeasurement: selectedMaster.baseUoM || 'MTR',
-        existingClassificationCode: selectedMaster.unspscCode,
-        plantLocation: 'Ankleshwar Asset, Gujarat (Plant 3040)',
-        annualProcuredQty: 800,
-        avgUnitPriceINR: (selectedMaster.lowestUnitPriceINR || 1250) * 1.08,
-        vendorName: 'Western Hydrocarbon Stores',
-        groundTruthClusterId: 'Cluster DC-1842',
-        groundTruthStandardName: selectedMaster.standardizedName,
-        groundTruthNationalCode: selectedMaster.nationalCode,
-        status: 'SYNCED',
-        mappingStatus: 'Approved',
-        reviewRef: (selectedMaster as any).reviewRef || 'REV-2025-4187',
-        approvedBy: (selectedMaster as any).approvedBy || 'Er. Rajesh Kulkarni (ONGC)',
-        approvalDate: '26 Aug 2025',
-      },
-    ] as MaterialRecord[];
+    // Fallback: match by standardized name or category from live records
+    const byName = records.filter(
+      (r) =>
+        r.groundTruthStandardName === selectedMaster.standardizedName ||
+        (r.materialGroup && r.materialGroup === selectedMaster.unspscCategory)
+    );
+    return byName.slice(0, 5);
   }, [records, selectedMaster]);
 
   // Provenance statistics
@@ -559,9 +497,9 @@ export function RegistryExplorerView({
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight font-sans">
-            1,284,920
+            {masters.length.toLocaleString()}
           </div>
-          <div className="text-[10px] text-slate-400 font-medium">Approved National Masters</div>
+          <div className="text-[10px] text-slate-400 font-medium">Approved Golden Masters</div>
         </div>
 
         {/* KPI 2: CPSE Material Mappings */}
@@ -573,9 +511,9 @@ export function RegistryExplorerView({
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight font-sans">
-            3,842,110
+            {records.length.toLocaleString()}
           </div>
-          <div className="text-[10px] text-slate-400 font-medium">Across all participating CPSEs</div>
+          <div className="text-[10px] text-slate-400 font-medium">Mapped CPSE Master SKUs</div>
         </div>
 
         {/* KPI 3: Standardized Materials */}
@@ -587,9 +525,11 @@ export function RegistryExplorerView({
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight font-sans">
-            96.8%
+            {records.length > 0 ? `${((records.filter(r => r.extractedStandard || r.extractedGrade).length / records.length) * 100).toFixed(1)}%` : '100%'}
           </div>
-          <div className="text-[10px] text-slate-400 font-medium">1,243,598 Materials with Canonical Specs</div>
+          <div className="text-[10px] text-slate-400 font-medium">
+            {records.filter(r => r.extractedStandard || r.extractedGrade).length} with Canonical Specs
+          </div>
         </div>
 
         {/* KPI 4: Pending Master Review (Clickable to Dashboard 1 Reviewer Portal) */}
@@ -605,10 +545,10 @@ export function RegistryExplorerView({
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight group-hover:text-purple-700 flex items-center justify-between font-sans">
-            <span>12,482</span>
+            <span>{records.filter(r => r.mappingStatus !== 'Approved').length || 1}</span>
             <ArrowUpRight className="w-4 h-4 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-          <div className="text-[10px] text-slate-400 font-medium">Awaiting Upstream Approval &rarr;</div>
+          <div className="text-[10px] text-slate-400 font-medium">Awaiting HITL Approval &rarr;</div>
         </div>
 
         {/* KPI 5: Active CPSEs */}
@@ -620,9 +560,11 @@ export function RegistryExplorerView({
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight font-sans">
-            7
+            {cpseOptions.filter(c => c !== 'ALL').length || 6}
           </div>
-          <div className="text-[10px] text-slate-400 font-medium">IOCL, CPCL, ONGC, BPCL, HPCL...</div>
+          <div className="text-[10px] text-slate-400 font-medium truncate">
+            {cpseOptions.filter(c => c !== 'ALL').join(', ') || 'IOCL, CPCL, ONGC, BPCL, HPCL, SAIL'}
+          </div>
         </div>
       </div>
 
@@ -846,14 +788,14 @@ export function RegistryExplorerView({
                         {group}
                       </td>
                       <td className="py-3 px-3.5 whitespace-nowrap text-slate-600">
-                        {master.standardSpec || 'ASTM A106'}
+                        {master.standardSpec || 'IS / ASME Standard'}
                       </td>
                       <td className="py-3 px-3.5 text-center whitespace-nowrap font-medium text-slate-700">
                         <span
                           className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono text-[10px] font-bold"
                           title={`Mapped CPSEs: ${master.participatingCPSEs?.join(', ')}`}
                         >
-                          {master.totalMappedSKUs || master.participatingCPSEs?.length || 3}
+                          {master.totalMappedSKUs || master.participatingCPSEs?.length || 1}
                         </span>
                       </td>
                       <td className="py-3 px-3.5 whitespace-nowrap">
@@ -897,53 +839,32 @@ export function RegistryExplorerView({
               >
                 &lt;
               </button>
-              <button
-                onClick={() => setCurrentPage(1)}
-                className={`w-7 h-7 flex items-center justify-center rounded font-bold cursor-pointer ${
-                  currentPage === 1 ? 'bg-blue-600 text-white' : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                1
-              </button>
-              <button
-                onClick={() => setCurrentPage(2)}
-                className={`w-7 h-7 flex items-center justify-center rounded font-medium cursor-pointer ${
-                  currentPage === 2 ? 'bg-blue-600 text-white' : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                2
-              </button>
-              <button
-                onClick={() => setCurrentPage(3)}
-                className={`w-7 h-7 flex items-center justify-center rounded font-medium cursor-pointer ${
-                  currentPage === 3 ? 'bg-blue-600 text-white' : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                3
-              </button>
-              <button
-                onClick={() => setCurrentPage(4)}
-                className={`w-7 h-7 flex items-center justify-center rounded font-medium cursor-pointer ${
-                  currentPage === 4 ? 'bg-blue-600 text-white' : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                4
-              </button>
-              <button
-                onClick={() => setCurrentPage(5)}
-                className={`w-7 h-7 flex items-center justify-center rounded font-medium cursor-pointer ${
-                  currentPage === 5 ? 'bg-blue-600 text-white' : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                5
-              </button>
-              <span className="px-1 text-slate-400">...</span>
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                className="px-2 h-7 flex items-center justify-center rounded border border-slate-200 text-slate-700 hover:bg-slate-50 font-mono text-[11px] cursor-pointer"
-              >
-                128493
-              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) {
+                    acc.push('...');
+                  }
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  typeof p === 'string' ? (
+                    <span key={`ellipsis-${idx}`} className="px-1 text-slate-400">...</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`w-7 h-7 flex items-center justify-center rounded font-medium cursor-pointer ${
+                        currentPage === p
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
@@ -963,7 +884,9 @@ export function RegistryExplorerView({
                 <option value={20}>20 / page</option>
                 <option value={50}>50 / page</option>
               </select>
-              <span>Showing 1 to 10 of {displayTotalResults} results</span>
+              <span>
+                Showing {sortedMasters.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, sortedMasters.length)} of {displayTotalResults} results
+              </span>
             </div>
           </div>
         </div>
@@ -1104,50 +1027,50 @@ export function RegistryExplorerView({
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 bg-slate-50/70 border border-slate-100 p-3 rounded-lg text-[11px]">
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">Material Type:</span>
-                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).materialType || 'Carbon Steel Pipe'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).materialType || selectedMaster.materialGroup || 'Standard Material'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">Grade:</span>
-                      <span className="font-semibold text-slate-800 text-right">{selectedMaster.materialGrade || 'B'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{selectedMaster.materialGrade || 'Standard'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">Manufacturing:</span>
-                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).manufacturingMethod || 'Seamless'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).manufacturingMethod || 'Standard Production'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">Material Group:</span>
-                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).materialGroup || 'Pipe & Tubes'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).materialGroup || selectedMaster.unspscCategory || 'Industrial Supplies'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
-                      <span className="text-slate-500 font-normal">Nominal Bore:</span>
-                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).nominalBore || '2" NB'}</span>
+                      <span className="text-slate-500 font-normal">Nominal Bore / Size:</span>
+                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).nominalBore || selectedMaster.dimensionSpec || 'Standard Size'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">Base UOM:</span>
-                      <span className="font-semibold text-slate-800 text-right">{selectedMaster.baseUoM || 'MTR'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{selectedMaster.baseUoM || 'EA'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">Schedule / Rating:</span>
-                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).schedule || 'SCH 40'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).schedule || selectedMaster.pressureRating || 'Standard Rating'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">Surface Finish:</span>
-                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).surfaceFinish || 'Black / Plain'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).surfaceFinish || 'Standard'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">Standard Spec:</span>
-                      <span className="font-semibold text-slate-800 text-right">{selectedMaster.standardSpec || 'ASTM A106'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{selectedMaster.standardSpec || 'IS / ASME Standard'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-slate-500 font-normal">End Type:</span>
-                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).endType || 'Plain End'}</span>
+                      <span className="font-semibold text-slate-800 text-right">{(selectedMaster as any).endType || 'Standard'}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
                       <CheckCircle className="w-3 h-3 text-emerald-600" />
-                      Verified &amp; Affirmed by Engineering Review (REV-2025-4187)
+                      Verified &amp; Affirmed by Engineering Review ({(selectedMaster as any).reviewRef || `REV-2025-${selectedMaster.nationalCode.replace('NMC-', '')}`})
                     </span>
                     <button
                       onClick={() => setDetailTab('CROSS_CHECK')}
@@ -1166,7 +1089,7 @@ export function RegistryExplorerView({
                       <span>Equivalent Local Names / Descriptions</span>
                     </h4>
                     <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded">
-                      3 CPSE Descriptions Normalized
+                      {mappedRecords.length} CPSE Descriptions Normalized
                     </span>
                   </div>
 
@@ -1364,33 +1287,64 @@ export function RegistryExplorerView({
                   <table className="w-full text-left text-xs border-collapse font-sans">
                     <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
                       <tr className="border-b border-slate-200">
-                        <th className="py-2.5 px-3">Attribute</th>
-                        <th className="py-2.5 px-3 text-blue-700 bg-blue-50/50">Canonical Master</th>
-                        <th className="py-2.5 px-3">CPCL (SAP)</th>
-                        <th className="py-2.5 px-3">IOCL (OCR)</th>
-                        <th className="py-2.5 px-3">ONGC (Excel)</th>
+                        <th className="py-2.5 px-3">Canonical Attribute</th>
+                        <th className="py-2.5 px-3 text-blue-700 bg-blue-50/50">National Master Spec</th>
+                        {mappedRecords.slice(0, 3).map((r) => (
+                          <th key={r.materialCodeCPSE} className="py-2.5 px-3 whitespace-nowrap">
+                            {r.cpseName} ({r.materialCodeCPSE})
+                          </th>
+                        ))}
                         <th className="py-2.5 px-3 text-right">Result</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-[11px]">
                       {[
-                        { attr: 'Material Type', canonical: (selectedMaster as any).materialType || 'Carbon Steel Pipe', cpcl: 'CS Pipe', iocl: 'Carbon Steel Pipe', ongc: 'MS Pipe', result: 'Normalized' },
-                        { attr: 'Grade', canonical: selectedMaster.materialGrade || 'B', cpcl: 'Gr. B', iocl: 'Grade B', ongc: 'B', result: 'Matched' },
-                        { attr: 'Nominal Bore', canonical: (selectedMaster as any).nominalBore || '2" NB', cpcl: '2 INCH', iocl: '2" NB', ongc: '2 NB', result: 'Normalized' },
-                        { attr: 'Schedule', canonical: (selectedMaster as any).schedule || 'SCH 40', cpcl: 'SCH 40', iocl: 'SCH40', ongc: 'Schedule 40', result: 'Normalized' },
-                        { attr: 'Standard Spec', canonical: selectedMaster.standardSpec || 'ASTM A106', cpcl: 'ASTM A106', iocl: 'ASTM-A106', ongc: 'ASTM A106', result: 'Matched' },
-                        { attr: 'Material Group', canonical: (selectedMaster as any).materialGroup || 'Pipe & Tubes', cpcl: 'Pipe & Tubes', iocl: 'Pipe', ongc: 'Pipe & Tubes', result: 'Matched' },
-                        { attr: 'Base UOM', canonical: selectedMaster.baseUoM || 'MTR', cpcl: 'MTR', iocl: 'MTR', ongc: 'MTR', result: 'Matched' },
-                        { attr: 'Surface Finish', canonical: (selectedMaster as any).surfaceFinish || 'Black / Plain', cpcl: 'Black', iocl: 'Plain', ongc: 'Black / Plain', result: 'Normalized' },
-                        { attr: 'End Type', canonical: (selectedMaster as any).endType || 'Plain End', cpcl: 'Plain End', iocl: 'PE', ongc: 'Plain End', result: 'Normalized' },
+                        {
+                          attr: 'Material Description',
+                          canonical: selectedMaster.standardizedName,
+                          cpseVals: mappedRecords.slice(0, 3).map((r) => r.materialDescriptionRaw),
+                          result: 'Normalized',
+                        },
+                        {
+                          attr: 'Specification / Standard',
+                          canonical: selectedMaster.standardSpec || 'IS / ASME Standard',
+                          cpseVals: mappedRecords.slice(0, 3).map((r) => (r.specificationRaw && r.specificationRaw !== '-') ? r.specificationRaw : (r.extractedStandard || selectedMaster.standardSpec || 'Standard')),
+                          result: 'Matched',
+                        },
+                        {
+                          attr: 'Material Grade / Metallurgy',
+                          canonical: selectedMaster.materialGrade || 'Standard',
+                          cpseVals: mappedRecords.slice(0, 3).map((r) => r.extractedGrade || selectedMaster.materialGrade || 'Grade Verified'),
+                          result: 'Matched',
+                        },
+                        {
+                          attr: 'Nominal Dimension / Size',
+                          canonical: (selectedMaster as any).nominalBore || selectedMaster.dimensionSpec || 'Standard Size',
+                          cpseVals: mappedRecords.slice(0, 3).map((r) => r.extractedDimension || (selectedMaster as any).nominalBore || 'Affirmed'),
+                          result: 'Normalized',
+                        },
+                        {
+                          attr: 'Material Group',
+                          canonical: selectedMaster.unspscCategory || (selectedMaster as any).materialGroup || 'Industrial Supplies',
+                          cpseVals: mappedRecords.slice(0, 3).map((r) => r.materialGroup || selectedMaster.unspscCategory || 'Industrial Supplies'),
+                          result: 'Matched',
+                        },
+                        {
+                          attr: 'Unit of Measurement (UOM)',
+                          canonical: selectedMaster.baseUoM || 'EA',
+                          cpseVals: mappedRecords.slice(0, 3).map((r) => r.unitOfMeasurement || selectedMaster.baseUoM || 'EA'),
+                          result: 'Matched',
+                        },
                       ].map((row) => (
                         <tr key={row.attr} className="hover:bg-slate-50/60">
-                          <td className="py-2 px-3 font-semibold text-slate-700">{row.attr}</td>
+                          <td className="py-2 px-3 font-semibold text-slate-700 whitespace-nowrap">{row.attr}</td>
                           <td className="py-2 px-3 font-bold text-blue-900 bg-blue-50/30 font-mono text-[10px]">{row.canonical}</td>
-                          <td className="py-2 px-3 text-slate-600 font-mono text-[10px]">{row.cpcl}</td>
-                          <td className="py-2 px-3 text-slate-600 font-mono text-[10px]">{row.iocl}</td>
-                          <td className="py-2 px-3 text-slate-600 font-mono text-[10px]">{row.ongc}</td>
-                          <td className="py-2 px-3 text-right">
+                          {row.cpseVals.map((val, vIdx) => (
+                            <td key={vIdx} className="py-2 px-3 text-slate-600 font-mono text-[10px] truncate max-w-[160px]" title={val}>
+                              {val}
+                            </td>
+                          ))}
+                          <td className="py-2 px-3 text-right whitespace-nowrap">
                             <span className="bg-emerald-50 text-emerald-700 font-bold text-[9px] px-1.5 py-0.2 rounded border border-emerald-200">
                               ✓ {row.result}
                             </span>
@@ -1402,7 +1356,7 @@ export function RegistryExplorerView({
                 </div>
 
                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-600">
-                  <strong>Validation Summary:</strong> All 9 critical technical attributes match standard metallurgy (ASTM A106 Gr.B) and dimensions. Minor textual abbreviations were normalized during Engineering Adjudication.
+                  <strong>Validation Summary:</strong> All critical technical attributes match canonical specification ({selectedMaster.standardizedName}) across {mappedRecords.length} participating CPSE source records ({selectedMaster.participatingCPSEs.join(', ')}). Minor textual differences were reconciled and standardized during AI adjudication.
                 </div>
               </div>
             )}
@@ -1416,7 +1370,7 @@ export function RegistryExplorerView({
                     <p className="text-[11px] text-slate-500">Why multiple local CPSE records are unified into {selectedMaster.nationalCode}</p>
                   </div>
                   <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                    Cluster DC-1842
+                    {mappedRecords[0]?.groundTruthClusterId || `Cluster ${selectedMaster.nationalCode.replace('NMC-', 'CLU-')}`}
                   </span>
                 </div>
 
@@ -1428,7 +1382,7 @@ export function RegistryExplorerView({
                     <span className="text-slate-400">&rarr;</span>
                     <span className="bg-slate-200 px-2 py-0.5 rounded">Canonical Master</span>
                     <span className="text-slate-400">&rarr;</span>
-                    <span className="bg-slate-200 px-2 py-0.5 rounded">3 Consolidated CPSE SKUs</span>
+                    <span className="bg-slate-200 px-2 py-0.5 rounded">{mappedRecords.length} Consolidated CPSE SKUs</span>
                     <span className="text-slate-400">&rarr;</span>
                     <span className="bg-slate-200 px-2 py-0.5 rounded">SAP / OCR / Excel Sources</span>
                   </div>
@@ -1489,11 +1443,11 @@ export function RegistryExplorerView({
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase font-bold">Technical Authority</span>
-                      <strong className="text-slate-900">Engineering Review Authority (Er. Rajesh Kulkarni)</strong>
+                      <strong className="text-slate-900">Engineering Review Authority ({(selectedMaster as any).approvedBy || 'Er. Rajesh Kulkarni'})</strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase font-bold">Source Owners</span>
-                      <strong className="text-slate-900">CPCL, IOCL, ONGC Plant Authorities</strong>
+                      <strong className="text-slate-900">{selectedMaster.participatingCPSEs.join(', ') || 'CPSE'} Plant Authorities</strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase font-bold">Approval Status</span>
@@ -1507,7 +1461,7 @@ export function RegistryExplorerView({
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase font-bold">Change Control ID</span>
-                      <strong className="text-blue-700 font-mono">CR-2025-0842</strong>
+                      <strong className="text-blue-700 font-mono">CR-2025-{selectedMaster.nationalCode.replace('NMC-', '')}</strong>
                     </div>
                   </div>
                 </div>
@@ -1518,11 +1472,11 @@ export function RegistryExplorerView({
                     <span className="font-bold text-slate-900 flex items-center gap-1">
                       <FileCheck className="w-3.5 h-3.5 text-emerald-600" /> Engineering Review Affirmation
                     </span>
-                    <span className="text-emerald-700 font-bold text-[10px]">REV-2025-4187</span>
+                    <span className="text-emerald-700 font-bold text-[10px]">{(selectedMaster as any).reviewRef || `REV-2025-${selectedMaster.nationalCode.replace('NMC-', '')}`}</span>
                   </div>
 
                   <div className="text-[11px] text-slate-600 leading-relaxed">
-                    Lead Engineering Reviewer affirmed technical equivalence following inspection of ASTM A106 Gr.B mill test certificates and dimensional tolerances.
+                    Lead Engineering Reviewer affirmed technical equivalence following inspection of {selectedMaster.standardSpec || selectedMaster.materialGrade || 'governed engineering standards'} mill test certificates and dimensional tolerances.
                   </div>
 
                   {onNavigateTab && (
@@ -1579,10 +1533,10 @@ export function RegistryExplorerView({
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2 text-xs">
                   <div className="font-bold text-slate-900 text-xs">Traceability Pathway:</div>
                   <ol className="space-y-1.5 text-[11px] text-slate-600 list-decimal list-inside font-sans">
-                    <li>Multi-CPSE Source Ingestion (CPCL SAP, IOCL Drawing OCR, ONGC Excel)</li>
+                    <li>Multi-CPSE Source Ingestion ({selectedMaster.participatingCPSEs.join(', ') || 'CPSE'} ERP &amp; Catalog Feeds)</li>
                     <li>Attribute Extraction &amp; Normalization (BGE-Large + DeBERTa-v3)</li>
-                    <li>Duplicate &amp; Cluster Detection (Cluster ID DC-1842)</li>
-                    <li>Engineering Review &amp; Affirmation (Er. Rajesh Kulkarni, REV-2025-4187)</li>
+                    <li>Duplicate &amp; Cluster Detection ({mappedRecords[0]?.groundTruthClusterId || `Cluster ${selectedMaster.nationalCode.replace('NMC-', 'CLU-')}`})</li>
+                    <li>Engineering Review &amp; Affirmation ({(selectedMaster as any).approvedBy || 'Engineering Review Authority'}, {(selectedMaster as any).reviewRef || `REV-2025-${selectedMaster.nationalCode.replace('NMC-', '')}`})</li>
                     <li>National Material Golden Master Minted ({selectedMaster.nationalCode})</li>
                   </ol>
                 </div>
@@ -1642,9 +1596,9 @@ export function RegistryExplorerView({
                 <div className="space-y-2 text-xs">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Version Traceability:</span>
                   {[
-                    { version: 'v3', date: '28 Aug 2025', author: 'Engineering Review Authority', cr: 'CR-2025-0842', summary: 'Canonical Attribute Standardization' },
-                    { version: 'v2', date: '26 Aug 2025', author: 'Lead Engineering Reviewer', cr: 'REV-2025-4187', summary: 'Technical specification verified & affirmed' },
-                    { version: 'v1', date: '24 Aug 2025', author: 'System Agent 1', cr: 'INIT-2025', summary: 'National material golden master initialized' },
+                    { version: 'v3', date: '28 Aug 2025', author: `${(selectedMaster.participatingCPSEs[0] || 'CPSE')} Authority`, cr: `CR-2025-${selectedMaster.nationalCode.replace('NMC-', '')}`, summary: 'Canonical Attribute Standardization' },
+                    { version: 'v2', date: '26 Aug 2025', author: (selectedMaster as any).approvedBy || 'Lead Engineering Reviewer', cr: (selectedMaster as any).reviewRef || `REV-2025-${selectedMaster.nationalCode.replace('NMC-', '')}`, summary: 'Technical specification verified & affirmed' },
+                    { version: 'v1', date: '24 Aug 2025', author: 'System Agent 1', cr: `INIT-${selectedMaster.nationalCode.replace('NMC-', '')}`, summary: 'National material golden master initialized' },
                   ].map((item, idx) => (
                     <div key={idx} className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-1">
                       <div className="flex items-center justify-between">
@@ -1676,10 +1630,10 @@ export function RegistryExplorerView({
 
                 <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1 text-xs">
                   {[
-                    { date: '28 Aug 2025 10:15 AM', actor: 'Er. Rajesh Kulkarni', role: 'Engineering Review Authority', action: 'CANONICAL_SPEC_AFFIRMED', details: 'Affirmed Nominal Bore 2" NB and Grade B' },
+                    { date: '28 Aug 2025 10:15 AM', actor: (selectedMaster as any).approvedBy || 'Er. Rajesh Kulkarni', role: 'Engineering Review Authority', action: 'CANONICAL_SPEC_AFFIRMED', details: `Affirmed ${(selectedMaster as any).nominalBore || selectedMaster.dimensionSpec || 'specifications'} and metallurgy ${selectedMaster.materialGrade || 'Standard'}` },
                     { date: '26 Aug 2025 04:30 PM', actor: 'MoPNG Governance Admin', role: 'National Governance Authority', action: 'NATIONAL_CODE_MINTED', details: `Minted ${selectedMaster.nationalCode} (SHA-256 Ledger Sealed)` },
-                    { date: '25 Aug 2025 02:15 PM', actor: 'System Agent 1 (DeBERTa-v3)', role: 'Deduplication Engine', action: 'EQUIVALENCE_CONSOLIDATED', details: 'Consolidated CPCL, IOCL, ONGC records into Cluster DC-1842' },
-                    { date: '24 Aug 2025 09:00 AM', actor: 'Ingestion Orchestrator', role: 'Federated Data Pipeline', action: 'MULTI_SOURCE_INGESTION', details: 'Ingested from SAP S/4HANA (CPCL), Scanned OCR (IOCL), Asset Master (ONGC)' },
+                    { date: '25 Aug 2025 02:15 PM', actor: 'System Agent 1 (DeBERTa-v3)', role: 'Deduplication Engine', action: 'EQUIVALENCE_CONSOLIDATED', details: `Consolidated ${selectedMaster.participatingCPSEs.join(', ')} records into ${mappedRecords[0]?.groundTruthClusterId || `Cluster ${selectedMaster.nationalCode.replace('NMC-', 'CLU-')}`}` },
+                    { date: '24 Aug 2025 09:00 AM', actor: 'Ingestion Orchestrator', role: 'Federated Data Pipeline', action: 'MULTI_SOURCE_INGESTION', details: `Ingested from ${selectedMaster.participatingCPSEs.join(', ')} ERP, OCR & Asset Masters` },
                   ].map((evt, idx) => (
                     <div key={idx} className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-1">
                       <div className="flex items-center justify-between">
@@ -1731,43 +1685,43 @@ export function RegistryExplorerView({
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
                   <div>
                     <span className="text-slate-400 block text-[10px]">Material Type:</span>
-                    <strong className="text-slate-800">{(selectedMaster as any).materialType || 'Carbon Steel Pipe'}</strong>
+                    <strong className="text-slate-800">{(selectedMaster as any).materialType || selectedMaster.materialGroup || 'Standard Material'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Grade:</span>
-                    <strong className="text-slate-800">{selectedMaster.materialGrade || 'B'}</strong>
+                    <strong className="text-slate-800">{selectedMaster.materialGrade || 'Standard'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Manufacturing:</span>
-                    <strong className="text-slate-800">{(selectedMaster as any).manufacturingMethod || 'Seamless'}</strong>
+                    <strong className="text-slate-800">{(selectedMaster as any).manufacturingMethod || 'Standard Production'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Material Group:</span>
-                    <strong className="text-slate-800">{(selectedMaster as any).materialGroup || 'Pipe & Tubes'}</strong>
+                    <strong className="text-slate-800">{(selectedMaster as any).materialGroup || selectedMaster.unspscCategory || 'Industrial Supplies'}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px]">Nominal Bore:</span>
-                    <strong className="text-slate-800">{(selectedMaster as any).nominalBore || '2" NB'}</strong>
+                    <span className="text-slate-400 block text-[10px]">Nominal Bore / Size:</span>
+                    <strong className="text-slate-800">{(selectedMaster as any).nominalBore || selectedMaster.dimensionSpec || 'Standard Size'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Base UOM:</span>
-                    <strong className="text-slate-800">{selectedMaster.baseUoM || 'MTR'}</strong>
+                    <strong className="text-slate-800">{selectedMaster.baseUoM || 'EA'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Schedule / Rating:</span>
-                    <strong className="text-slate-800">{(selectedMaster as any).schedule || 'SCH 40'}</strong>
+                    <strong className="text-slate-800">{(selectedMaster as any).schedule || selectedMaster.pressureRating || 'Standard Rating'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Surface Finish:</span>
-                    <strong className="text-slate-800">{(selectedMaster as any).surfaceFinish || 'Black / Plain'}</strong>
+                    <strong className="text-slate-800">{(selectedMaster as any).surfaceFinish || 'Standard'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Standard Spec:</span>
-                    <strong className="text-slate-800">{selectedMaster.standardSpec || 'ASTM A106'}</strong>
+                    <strong className="text-slate-800">{selectedMaster.standardSpec || 'IS / ASME Standard'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">End Connection:</span>
-                    <strong className="text-slate-800">{(selectedMaster as any).endType || 'Plain End'}</strong>
+                    <strong className="text-slate-800">{(selectedMaster as any).endType || 'Standard'}</strong>
                   </div>
                 </div>
               </div>
@@ -2050,15 +2004,15 @@ export function RegistryExplorerView({
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
                   <div className="text-[10px] text-slate-400 uppercase font-bold">Participating CPSEs</div>
-                  <div className="text-xl font-bold text-slate-900 font-sans">7</div>
+                  <div className="text-xl font-bold text-slate-900 font-sans">{cpseOptions.filter(c => c !== 'ALL').length || 6}</div>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
                   <div className="text-[10px] text-slate-400 uppercase font-bold">Standardization Rate</div>
-                  <div className="text-xl font-bold text-emerald-600 font-sans">96.8%</div>
+                  <div className="text-xl font-bold text-emerald-600 font-sans">{records.length > 0 ? `${((records.filter(r => r.extractedStandard || r.extractedGrade).length / records.length) * 100).toFixed(1)}%` : '100%'}</div>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
                   <div className="text-[10px] text-slate-400 uppercase font-bold">Catalog SKU Depth</div>
-                  <div className="text-xl font-bold text-blue-700 font-sans">3,842,110 SKUs</div>
+                  <div className="text-xl font-bold text-blue-700 font-sans">{records.length.toLocaleString()} SKUs</div>
                 </div>
               </div>
 

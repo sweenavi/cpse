@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Terminal,
 } from 'lucide-react';
-import { LIVE_DRIFT_ALERTS, INITIAL_AUDIT_LEDGER } from '../data/mockData';
 
 interface VigilanceDashboardProps {
   currentUser?: UserProfile | null;
@@ -21,8 +20,9 @@ interface VigilanceDashboardProps {
 
 export function VigilanceDashboardView({ currentUser }: VigilanceDashboardProps) {
   const [subTab, setSubTab] = useState<'DRIFT_ALERTS' | 'LEDGER' | 'INTEGRATION_HEALTH' | 'SAP_SYNC_QUEUE'>('DRIFT_ALERTS');
-  const [alerts, setAlerts] = useState<DriftAlertItem[]>(LIVE_DRIFT_ALERTS);
-  const [ledger, setLedger] = useState<AuditLedgerBlock[]>(INITIAL_AUDIT_LEDGER);
+  const [alerts, setAlerts] = useState<DriftAlertItem[]>([]);
+  const [ledger, setLedger] = useState<AuditLedgerBlock[]>([]);
+
   const [syncQueue, setSyncQueue] = useState<any[]>([]);
   const [revertedMessage, setRevertedMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,7 +31,7 @@ export function VigilanceDashboardView({ currentUser }: VigilanceDashboardProps)
   useEffect(() => {
     async function loadData() {
       try {
-        const hasAccess = currentUser?.role === 'IT_SAP_TEAM' || currentUser?.role === 'MOPNG_GOVERNMENT';
+        const hasAccess = currentUser?.role === 'IT_SAP_TEAM' || currentUser?.role === 'MOPNG_GOVERNMENT' || currentUser?.role === 'SUPER_ADMIN';
         const [ledgerRes, alertsRes, syncQueueRes] = await Promise.all([
           fetchLedgerBlocks(),
           fetchDriftAlerts(),

@@ -1,53 +1,102 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { UserProfile } from '../types';
+import type { UserProfile, MaterialRecord } from '../types';
 import { PriceDispersionChart } from '../components/PriceDispersionChart';
 import { TrendingUp, Calculator, ShieldCheck, Sparkles, SlidersHorizontal, Download, CheckCircle2 } from 'lucide-react';
 import { runSourcingSimulation } from '../services/api';
 
 interface SourcingSimulatorProps {
   currentUser?: UserProfile | null;
+  records?: MaterialRecord[];
 }
 
-export function SourcingSimulatorView({ currentUser }: SourcingSimulatorProps) {
+export function SourcingSimulatorView({ currentUser, records = [] }: SourcingSimulatorProps) {
   const [selectedItem, setSelectedItem] = useState('VALVES');
   const [volumeDiscountElasticity, setVolumeDiscountElasticity] = useState(12); // % target discount
   const [mseAllocationPercent, setMseAllocationPercent] = useState(28);
   const [simulationResult, setSimulationResult] = useState<any>(null);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
-  const scenarioData = useMemo(() => {
-    if (selectedItem === 'VALVES') {
-      return {
-        title: 'Ball Valve 2" Class 150# Flanged WCB/SS316 (CNM-100010-004)',
-        rates: [
-          { cpseName: 'CPCL (Manali)', rate: 14200, annualQty: 1200 },
-          { cpseName: 'IOCL (Panipat)', rate: 12800, annualQty: 4800 },
-          { cpseName: 'ONGC (Ankleshwar)', rate: 13400, annualQty: 2400 },
-          { cpseName: 'BPCL (Kochi)', rate: 13900, annualQty: 1600 },
-        ],
-      };
-    } else if (selectedItem === 'GASKETS') {
-      return {
-        title: 'Spiral Wound Gasket SS316 4" Class 150# (CNM-100001)',
-        rates: [
-          { cpseName: 'SAIL (Bhilai)', rate: 529.0, annualQty: 2400 },
-          { cpseName: 'CPCL (Cauvery)', rate: 495.0, annualQty: 800 },
-          { cpseName: 'IOCL (Haldia)', rate: 460.0, annualQty: 3200 },
-          { cpseName: 'HPCL (Visakh)', rate: 510.0, annualQty: 1400 },
-        ],
-      };
-    } else {
-      return {
-        title: 'Nitrile Rubber O-Ring 50x3mm NBR 70A (CNM-100023-005)',
-        rates: [
-          { cpseName: 'IOCL (Haldia)', rate: 29.87, annualQty: 6500 },
-          { cpseName: 'HPCL (Visakh)', rate: 13.42, annualQty: 8200 },
-          { cpseName: 'CPCL (Manali)', rate: 24.5, annualQty: 3800 },
-          { cpseName: 'ONGC (Ankleshwar)', rate: 22.0, annualQty: 4500 },
-        ],
-      };
+  // Dynamically derive distinct commodities from records (with multi-CPSE quotations)
+  const availableCommodities = useMemo(() => {
+    if (!records || records.length === 0) {
+      return [
+        {
+          id: 'VALVES',
+          name: 'Ball Valve 2" Class 150# Flanged WCB/SS316',
+          nationalCode: 'CNM-100010-004',
+          rates: [
+            { cpseName: 'CPCL (Manali)', rate: 14200, annualQty: 1200 },
+            { cpseName: 'IOCL (Panipat)', rate: 12800, annualQty: 4800 },
+            { cpseName: 'ONGC (Ankleshwar)', rate: 13400, annualQty: 2400 },
+            { cpseName: 'BPCL (Kochi)', rate: 13900, annualQty: 1600 },
+          ],
+        },
+        {
+          id: 'GASKETS',
+          name: 'Spiral Wound Gasket SS316 4" Class 150#',
+          nationalCode: 'CNM-100001',
+          rates: [
+            { cpseName: 'SAIL (Bhilai)', rate: 529.0, annualQty: 2400 },
+            { cpseName: 'CPCL (Cauvery)', rate: 495.0, annualQty: 800 },
+            { cpseName: 'IOCL (Haldia)', rate: 460.0, annualQty: 3200 },
+            { cpseName: 'HPCL (Visakh)', rate: 510.0, annualQty: 1400 },
+          ],
+        },
+        {
+          id: 'ORINGS',
+          name: 'Nitrile Rubber O-Ring 50x3mm NBR 70A',
+          nationalCode: 'CNM-100023-005',
+          rates: [
+            { cpseName: 'IOCL (Haldia)', rate: 29.87, annualQty: 6500 },
+            { cpseName: 'HPCL (Visakh)', rate: 13.42, annualQty: 8200 },
+            { cpseName: 'CPCL (Manali)', rate: 24.5, annualQty: 3800 },
+            { cpseName: 'ONGC (Ankleshwar)', rate: 22.0, annualQty: 4500 },
+          ],
+        },
+      ];
     }
-  }, [selectedItem]);
+
+    const map = new Map<string, {
+      id: string;
+      name: string;
+      nationalCode: string;
+      rates: { cpseName: string; rate: number; annualQty: number }[];
+    }>();
+
+    for (const rec of records) {
+      const code = rec.groundTruthNationalCode || `CNM-${rec.groundTruthClusterId || rec.rowId}`;
+      const name = rec.groundTruthStandardName || rec.materialDescriptionRaw;
+      if (!map.has(code)) {
+        map.set(code, {
+          id: code,
+          name,
+          nationalCode: code,
+          rates: [],
+        });
+      }
+      const entry = map.get(code)!;
+      entry.rates.push({
+        cpseName: `${rec.cpseName} (${rec.plantLocation ? rec.plantLocation.split(',')[0].trim() : 'Plant'})`,
+        rate: Number(rec.avgUnitPriceINR) || 1000,
+        annualQty: Number(rec.annualProcuredQty) || 100,
+      });
+    }
+
+    const clustersWithMultiRates = Array.from(map.values()).filter((c) => c.rates.length >= 2);
+    return clustersWithMultiRates.length > 0
+      ? clustersWithMultiRates.slice(0, 25)
+      : Array.from(map.values()).slice(0, 10);
+  }, [records]);
+
+  const scenarioData = useMemo(() => {
+    const found = availableCommodities.find((c) => c.id === selectedItem);
+    const target = found || availableCommodities[0];
+    return {
+      title: `${target.name} (${target.nationalCode})`,
+      nationalCode: target.nationalCode,
+      rates: target.rates,
+    };
+  }, [availableCommodities, selectedItem]);
 
   // Execute real simulation via Agent 3 backend API on change
   useEffect(() => {
@@ -120,11 +169,13 @@ export function SourcingSimulatorView({ currentUser }: SourcingSimulatorProps) {
           <select
             value={selectedItem}
             onChange={(e) => setSelectedItem(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-800 cursor-pointer focus:outline-rose-500"
+            className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-800 cursor-pointer focus:outline-rose-500 max-w-md truncate"
           >
-            <option value="VALVES">Ball Valves 2" 150# (ASME B16.34)</option>
-            <option value="GASKETS">Spiral Wound Gaskets 4" 150# (ASME B16.20)</option>
-            <option value="ORINGS">Nitrile Rubber O-Rings 50x3mm (IS 3400)</option>
+            {availableCommodities.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nationalCode} — {c.name} ({c.rates.length} CPSE Quotes)
+              </option>
+            ))}
           </select>
         </div>
       </div>
